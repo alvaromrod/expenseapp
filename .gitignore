@@ -1,0 +1,52 @@
+# Built artifacts
+*.apk
+*.aar
+*.ap_
+*.aab
+bin/
+gen/
+out/
+app/build/
+build/
+*/build/
+
+# Gradle files
+.gradle/
+local.properties
+
+# IDE files
+*.iml
+.idea/
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+cmake-build-*/
+.settings/
+.project
+.classpath
+
+# Log files
+*.log
+
+# Android Studio - Navigation Editor temp files
+.navigation/
+
+# Android Studio - Profiling tool
+captures/
+
+# Google Services file
+# google-services.json
+
+# Performance tool
+*.hprof
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Kotlin
+*.kotlin_module
+
+# Other
+deps.txt
