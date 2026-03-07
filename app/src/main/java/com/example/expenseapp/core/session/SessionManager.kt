@@ -1,6 +1,7 @@
 package com.example.expenseapp.core.session
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,6 +16,13 @@ class SessionManager @Inject constructor(
     suspend fun saveSession(userId: String) {
         currentUserId = userId
         preferenceManager.saveUserId(userId)
+    }
+
+    suspend fun getUserId(): String? {
+        if (currentUserId != null) return currentUserId
+        val userId = currentUserFlow.firstOrNull()
+        currentUserId = userId
+        return userId
     }
 
     suspend fun clearSession() {

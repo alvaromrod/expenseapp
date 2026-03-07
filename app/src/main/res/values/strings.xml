@@ -1,3 +1,132 @@
 <resources>
     <string name="app_name">ExpenseApp</string>
+    <string name="lets_set_up_profile">Let\'s set up your profile</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="log_expense">Log Expense</string>
+    <string name="group">Group</string>
+    <string name="manage">Manage</string>
+    <string name="amount">Amount</string>
+    <string name="unit">Unit</string>
+    <string name="description_optional">Description (optional)</string>
+    <string name="description_optional_caps">Description (Optional)</string>
+    <string name="equally">Equally</string>
+    <string name="custom_amounts">Custom Amounts</string>
+    <string name="save_expense">Save Expense</string>
+    <string name="select_group_prompt">Select a group to split expenses</string>
+    <string name="category_name">Category Name</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="close">Close</string>
+    <string name="add_new">Add New</string>
+    <string name="edit_group">Edit Group</string>
+    <string name="group_name">Group Name</string>
+    <string name="main_currency">Main Currency</string>
+    <string name="settle_up">Settle Up</string>
+    <string name="groups">Groups</string>
+    <string name="join_group">Join Group</string>
+    <string name="paste_group_link">Paste the group link or ID below:</string>
+    <string name="join">Join</string>
+    <string name="no_groups_yet">No groups yet. Create one!</string>
+    <string name="members">Members:</string>
+    <string name="share_group">Share %1$s</string>
+    <string name="invite_others">Invite others to join this group using this link:</string>
+    <string name="copy_link">Copy Link</string>
+    <string name="create_group">Create Group</string>
+    <string name="create">Create</string>
+    <string name="go_back">Go Back</string>
+    <string name="join_now">Join Now</string>
+    <string name="scan_qr_code">Scan QR Code</string>
+    <string name="camera_permission_required">Camera permission is required to scan QR codes</string>
+    <string name="settle_balances">Settle Balances</string>
+    <string name="record_payment">Record Payment &amp; Settle Up</string>
+    <string name="delete_expense">Delete Expense</string>
+    <string name="delete_expense_confirmation">Are you sure you want to delete this expense?</string>
+    <string name="manage_groups">Manage Groups</string>
+    <string name="whats_your_name">What\'s your name?</string>
+    <string name="complete_setup">Complete Setup</string>
+    <string name="profile">Profile</string>
+    <string name="display_name">Display Name</string>
+    <string name="save_changes">Save Changes</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="spending_analysis">Spending Analysis</string>
+    <string name="all_groups_general">All Groups (General)</string>
+    <string name="all_categories">All Categories</string>
+    <string name="welcome_to_expenseapp">Welcome to ExpenseApp</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="login">Login</string>
+    <string name="already_have_account">Already have an account? Login</string>
+    <string name="dont_have_account">Don\'t have an account? Sign Up</string>
+    <string name="welcome_exclamation">Welcome!</string>
+    <string name="unknown_error">Unknown error</string>
+    <string name="a_new_group">a new group</string>
+    <string name="invited_to_join">You\'ve been invited to join</string>
+    <string name="members_title">Members</string>
+    <string name="group_balances_default">Group Balances</string>
+    <string name="group_balances_named">%1$s Balances</string>
+    <string name="net_balances">Net Balances</string>
+    <string name="is_owed">is owed</string>
+    <string name="owes">owes</string>
+    <string name="is_settled_up">is settled up</string>
+    <string name="settle_all_balances_prompt">Settle all balances for %1$s?</string>
+    <string name="settle_up_description">This will mark all current expenses as archived. They will no longer count towards the total group debt, but they will stay in your history.</string>
+    <string name="record_payment_and_settle">Record Payment &amp; Settle Up</string>
+
+    <string name="scan_receipt">Scan Receipt</string>
+    <string name="select_group">Select Group</string>
+
+    <string name="category">Category</string>
+
+
+
+
+    <string name="split_with">Split with:</string>
+
+
+    <string name="remaining_to_assign">Remaining to assign: %1$s</string>
+
+    <string name="select_group_to_split">Select a group to split expenses</string>
+    <string name="manage_categories">Manage Categories</string>
+    <string name="category_name_label">Category Name</string>
+    <string name="select_icon">Select Icon</string>
+    <string name="select_color">Select Color</string>
+
+
+
+    <string name="confirm_delete_expense">Are you sure you want to delete this expense?</string>
+
+    <string name="statistics">Statistics</string>
+    <string name="add_expense">Add Expense</string>
+    <string name="recent_expenses">Recent Expenses</string>
+    <string name="no_active_expenses">No active expenses. Tap + to add one!</string>
+    <string name="you_are_owed">You are owed</string>
+    <string name="you_owe">You owe</string>
+    <string name="paid_by">Paid by</string>
+    <string name="paid_by_label">Paid by: %1$s</string>
+    <string name="suggested_transfers">Suggested Transfers</string>
+    <string name="transfer_summary">%1$s pays %2$s</string>
+    <string name="settle">Settle</string>
+    <string name="all_settled_up">All settled up!</string>
+    
+    <!-- Statistics Screen -->
+    <string name="no_expenses_found">No expenses found for this selection.</string>
+    <string name="breakdown_by_category">Breakdown by Category</string>
+    <string name="total_spent_normalized">Total Spent (Normalized to %1$s)</string>
+    <string name="from">From</string>
+    <string name="to">To</string>
+    <string name="unknown">Unknown</string>
+
+    <!-- Default Categories -->
+    <string name="cat_eating_out">Eating out</string>
+    <string name="cat_transport">Transport</string>
+    <string name="cat_rent_housing">Rent &amp; Housing</string>
+    <string name="cat_supermarket">Supermarket</string>
+    <string name="cat_traveling">Traveling</string>
+    <string name="cat_entertainment">Entertainment</string>
+    <string name="cat_health">Health</string>
+    <string name="cat_education">Education</string>
+    <string name="cat_shopping">Shopping</string>
+    <string name="cat_utilities">Utilities</string>
+    <string name="cat_other">Other</string>
 </resources>

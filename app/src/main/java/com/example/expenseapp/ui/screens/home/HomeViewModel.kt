@@ -2,27 +2,38 @@ package com.example.expenseapp.ui.screens.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.expenseapp.domain.model.Category
 import com.example.expenseapp.domain.model.Expense
+import com.example.expenseapp.domain.repository.CategoryRepository
 import com.example.expenseapp.domain.repository.ExpenseRepository
 import com.example.expenseapp.domain.repository.UserRepository
 import com.example.expenseapp.domain.repository.currency.CurrencyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
     val expenses: List<Expense> = emptyList(),
+    val groups: List<com.example.expenseapp.domain.model.Group> = emptyList(),
+    val selectedGroup: com.example.expenseapp.domain.model.Group? = null,
     val totalBalance: Double = 0.0,
-    val isLoading: Boolean = false,
-    val isSynced: Boolean = false
+    val isLoading: Boolean = true,
+    val isSynced: Boolean = false,
+    val categoryMap: Map<String, Category> = emptyMap(),
+    val userMap: Map<String, com.example.expenseapp.domain.model.User> = emptyMap()
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val userRepository: UserRepository,
-    private val currencyRepository: CurrencyRepository
+    private val groupRepository: com.example.expenseapp.domain.repository.GroupRepository,
+    private val currencyRepository: com.example.expenseapp.domain.repository.currency.CurrencyRepository,
+    private val preferenceManager: com.example.expenseapp.core.session.PreferenceManager,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
@@ -32,21 +43,86 @@ class HomeViewModel @Inject constructor(
         loadData()
     }
 
+    private data class CombinedData(
+        val groups: List<com.example.expenseapp.domain.model.Group>,
+        val lastGroupId: String?,
+        val currentUser: com.example.expenseapp.domain.model.User?,
+        val rates: Map<String, Double>,
+        val categories: List<Category>,
+        val users: List<com.example.expenseapp.domain.model.User>
+    )
+
     private fun loadData() {
         viewModelScope.launch {
+            val groupsFlow = groupRepository.getAllGroups()
+            val lastGroupIdFlow = preferenceManager.lastGroupId
+            val currentUserFlow = userRepository.getCurrentUser().filterNotNull()
+            val categoriesFlow = categoryRepository.getAllCategories()
+            val usersFlow = userRepository.getAllUsers()
+
             combine(
-                expenseRepository.getAllExpenses(),
-                userRepository.getCurrentUser(),
-                flow { emit(currencyRepository.getExchangeRates("USD")) }
-            ) { expenses, currentUser, rates ->
-                HomeUiState(
-                    expenses = expenses,
-                    totalBalance = calculateTotalBalance(expenses, currentUser?.id, rates),
-                    isLoading = false
+                groupsFlow,
+                lastGroupIdFlow,
+                currentUserFlow,
+                categoriesFlow,
+                usersFlow
+            ) { groups, lastId, user, categories, allUsers ->
+                val selectedGroup = groups.find { it.id == lastId } ?: groups.firstOrNull()
+                data class BaseData(
+                    val groups: List<com.example.expenseapp.domain.model.Group>,
+                    val selectedGroup: com.example.expenseapp.domain.model.Group?,
+                    val currentUser: com.example.expenseapp.domain.model.User?,
+                    val categories: List<Category>,
+                    val users: List<com.example.expenseapp.domain.model.User>
                 )
-            }.collect { state ->
+                BaseData(groups, selectedGroup, user, categories, allUsers)
+            }.flatMapLatest { data ->
+                if (data.selectedGroup != null) {
+                    combine(
+                        expenseRepository.getExpensesByGroup(data.selectedGroup.id),
+                        flow { emit(currencyRepository.getExchangeRates(data.selectedGroup.mainCurrency)) }
+                    ) { expenses, rates ->
+                        HomeUiState(
+                            expenses = expenses,
+                            groups = data.groups,
+                            selectedGroup = data.selectedGroup,
+                            totalBalance = calculateTotalBalance(expenses, data.currentUser?.id, rates),
+                            isLoading = false,
+                            categoryMap = data.categories.associateBy { it.id },
+                            userMap = data.users.associateBy { it.id }
+                        )
+                    }
+                } else {
+                    flowOf(
+                        HomeUiState(
+                            expenses = emptyList(),
+                            groups = data.groups,
+                            selectedGroup = null,
+                            totalBalance = 0.0,
+                            isLoading = false,
+                            categoryMap = data.categories.associateBy { it.id },
+                            userMap = data.users.associateBy { it.id }
+                        )
+                    )
+                }
+            }
+            .debounce(150)
+            .collect { state ->
+                // Loading Lock: If we have already successfully loaded data, do not revert to a loading or empty state 
+                // just because a background sync temporarily cleared a table.
+                val currState = _uiState.value
+                if (!currState.isLoading && state.groups.isEmpty() && currState.groups.isNotEmpty()) {
+                    // Ignore transient empty states if we already had data
+                    return@collect
+                }
                 _uiState.value = state
             }
+        }
+    }
+
+    fun selectGroup(groupId: String) {
+        viewModelScope.launch {
+            preferenceManager.saveLastGroup(groupId)
         }
     }
 
@@ -57,13 +133,18 @@ class HomeViewModel @Inject constructor(
     ): Double {
         if (currentUserId == null) return 0.0
         var balance = 0.0
-        expenses.forEach { expense ->
+        expenses.filter { !it.isArchived }.forEach { expense ->
             val rate = rates[expense.currency] ?: 1.0
-            val amountInBase = expense.amount / rate
+            
+            // If the user paid, their balance increases by the total amount (converted)
             if (expense.paidById == currentUserId) {
-                balance += amountInBase
-            } else {
-                balance -= (amountInBase / 2)
+                balance += (expense.amount / rate)
+            }
+            
+            // Subtract what the user owes from the total (converted)
+            val userSplit = expense.splits.find { it.owedById == currentUserId }
+            if (userSplit != null) {
+                balance -= (userSplit.amountOwed / rate)
             }
         }
         return balance

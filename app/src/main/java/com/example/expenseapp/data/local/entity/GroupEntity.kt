@@ -7,5 +7,7 @@ import androidx.room.PrimaryKey
 data class GroupEntity(
     @PrimaryKey val id: String,
     val name: String,
+    val description: String?,
+    val main_currency: String,
     val created_at: Long
 )

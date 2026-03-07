@@ -8,7 +8,11 @@ import dagger.hilt.components.SingletonComponent
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.storage.Storage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import javax.inject.Singleton
 
 @Module
@@ -23,7 +27,14 @@ object SupabaseModule {
             supabaseKey = BuildConfig.SUPABASE_ANON_KEY
         ) {
             install(Auth)
+            install(Postgrest)
             install(Storage)
         }
+    }
+
+    @Provides
+    @Singleton
+    fun provideSupabaseScope(): CoroutineScope {
+        return CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 }

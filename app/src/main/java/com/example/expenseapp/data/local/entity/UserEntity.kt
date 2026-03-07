@@ -8,5 +8,6 @@ data class UserEntity(
     @PrimaryKey val id: String, // Maps to Supabase Auth UUID
     val name: String,
     val email: String,
-    val avatar_url: String? = null
+    val avatar_url: String? = null,
+    val main_currency: String = "EUR"
 )

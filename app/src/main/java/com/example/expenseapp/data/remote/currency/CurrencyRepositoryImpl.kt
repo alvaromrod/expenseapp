@@ -12,16 +12,18 @@ import javax.inject.Inject
 class CurrencyRepositoryImpl @Inject constructor() : CurrencyRepository {
 
     override suspend fun getExchangeRates(baseCurrency: String): Map<String, Double> = withContext(Dispatchers.IO) {
-        // In a real app, you'd use Retrofit or Ktor to fetch from:
-        // https://api.frankfurter.app/latest?from=$baseCurrency
-        
-        // Mocking for development focus
-        mapOf(
-            "USD" to 1.0,
-            "EUR" to 0.92,
-            "GBP" to 0.79,
-            "JPY" to 150.0
+        // Mock rates relative to EUR
+        val ratesToEur = mapOf(
+            "USD" to 1.08,
+            "EUR" to 1.0,
+            "GBP" to 0.86,
+            "JPY" to 162.0
         )
+        
+        val baseRateInEur = ratesToEur[baseCurrency] ?: 1.0
+        
+        // Return rates relative to the requested baseCurrency
+        ratesToEur.mapValues { it.value / baseRateInEur }
     }
 
     override fun getSupportedCurrencies(): List<String> = listOf("USD", "EUR", "GBP", "JPY")

@@ -1,6 +1,8 @@
 package com.example.expenseapp.ui.screens.group
 
 import androidx.lifecycle.ViewModel
+import androidx.navigation.NavController
+import com.example.expenseapp.ui.navigation.Screen
 import androidx.lifecycle.viewModelScope
 import com.example.expenseapp.domain.model.Group
 import com.example.expenseapp.domain.model.User
@@ -28,17 +30,21 @@ class GroupViewModel @Inject constructor(
     val users: StateFlow<List<User>> = userRepository.getAllUsers()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun createGroup(name: String) {
+    fun createGroup(name: String, description: String? = null, mainCurrency: String = "EUR") {
         viewModelScope.launch {
             val group = Group(
                 id = UUID.randomUUID().toString(),
                 name = name,
+                description = description,
+                mainCurrency = mainCurrency,
                 createdAt = System.currentTimeMillis()
             )
             groupRepository.createGroup(group)
             
             // Automatically add the creator (current user) to the group
-            val user = userRepository.getCurrentUser().firstOrNull()
+            // Ensure they are synced first so they exist in the local DB for the JOIN query
+            // and their profile is pushed to the remote 'users' table if it was missing
+            val user = userRepository.syncUserFromSupabase(null)
             if (user != null) {
                 groupRepository.addMemberToGroup(group.id, user.id)
             }
@@ -51,11 +57,29 @@ class GroupViewModel @Inject constructor(
         }
     }
 
-    fun getMembersForGroup(groupId: String) = groupRepository.getMembersForGroup(groupId)
+    fun getMembersForGroup(groupId: String): kotlinx.coroutines.flow.Flow<List<User>> {
+        viewModelScope.launch {
+            groupRepository.syncGroupMembersFromSupabase(groupId)
+        }
+        return groupRepository.getMembersForGroup(groupId)
+    }
 
     fun deleteGroup(id: String) {
         viewModelScope.launch {
             groupRepository.deleteGroup(id)
+        }
+    }
+
+    fun joinGroupByLink(link: String, navController: NavController) {
+        // Parse groupId from link like expenseapp://join?groupId=... or just the ID
+        val groupId = if (link.startsWith("expenseapp://") || link.contains("groupId=")) {
+            link.substringAfter("groupId=").substringBefore("&").trim()
+        } else {
+            link.trim()
+        }
+
+        if (groupId.isNotBlank()) {
+            navController.navigate(Screen.JoinGroup.createRoute(groupId))
         }
     }
 }

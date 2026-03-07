@@ -1,9 +1,12 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlinx.serialization)
 }
 
 configurations.all {
@@ -39,8 +42,19 @@ android {
             useSupportLibrary = true
         }
 
-        val supabaseUrl = project.findProperty("SUPABASE_URL")?.toString()?.takeIf { it.isNotBlank() } ?: "http://10.0.2.2:54321"
-        val supabaseAnonKey = project.findProperty("SUPABASE_ANON_KEY")?.toString()?.takeIf { it.isNotBlank() } ?: "dummy-anon-key"
+        val localProperties = Properties()
+        val localPropertiesFile = project.rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localProperties.load(localPropertiesFile.inputStream())
+        }
+
+        val supabaseUrl = localProperties.getProperty("SUPABASE_URL") 
+            ?: project.findProperty("SUPABASE_URL")?.toString() 
+            ?: "http://10.0.2.2:54321"
+            
+        val supabaseAnonKey = localProperties.getProperty("SUPABASE_ANON_KEY")
+            ?: project.findProperty("SUPABASE_ANON_KEY")?.toString() 
+            ?: "dummy-anon-key"
         
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
@@ -104,6 +118,9 @@ dependencies {
     // DataStore
     implementation(libs.androidx.datastore.preferences)
     
+    // QR Code
+    implementation(libs.zxing.core)
+    
     // Material Components (XML)
     implementation(libs.google.material)
 
@@ -115,10 +132,18 @@ dependencies {
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
     
-    // Force a stable version of androidx.browser to avoid API 36 requirement from Supabase 3.4.1
     implementation(libs.androidx.browser) {
         version {
             strictly("1.8.0")
         }
     }
+    implementation(libs.material.icons.extended)
+
+    // CameraX & ML Kit
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.mlkit.barcode.scanning)
+    implementation(libs.accompanist.permissions)
 }

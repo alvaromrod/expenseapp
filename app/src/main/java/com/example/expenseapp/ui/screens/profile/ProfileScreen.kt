@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -25,6 +26,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.expenseapp.ui.navigation.Screen
 import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.ui.res.stringResource
+import com.example.expenseapp.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,7 +78,7 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Profile") },
+                title = { Text(stringResource(R.string.profile)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -102,33 +105,26 @@ fun ProfileScreen(
             ) {
                 Log.d("ProfileScreen", "Rendering content. User: ${uiState.user?.email}")
                 
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = LocalIndication.current,
-                            enabled = !uiState.isLoading
-                        ) { launcher.launch("image/*") },
-                    contentAlignment = androidx.compose.ui.Alignment.Center
+                Surface(
+                    onClick = { launcher.launch("image/*") },
+                    modifier = Modifier.size(100.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    enabled = !uiState.isLoading
                 ) {
-                    if (uiState.user?.avatarUrl != null) {
-                        AsyncImage(
-                            model = uiState.user?.avatarUrl,
-                            contentDescription = "Avatar",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (uiState.user?.avatarUrl != null) {
+                            AsyncImage(
+                                model = uiState.user?.avatarUrl,
+                                contentDescription = "Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
                             Icon(
                                 Icons.Default.Person,
                                 contentDescription = "Default Avatar",
-                                modifier = Modifier.size(48.dp).padding(24.dp)
+                                modifier = Modifier.size(48.dp).padding(16.dp)
                             )
                         }
                     }
@@ -139,7 +135,7 @@ fun ProfileScreen(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Display Name") },
+                    label = { Text(stringResource(R.string.display_name)) },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                     enabled = !uiState.isSaving && !uiState.isLoading
                 )
@@ -147,8 +143,49 @@ fun ProfileScreen(
                 Text(
                     text = "Email: ${uiState.user?.email ?: "N/A"}",
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(bottom = 32.dp)
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
+
+                var currencyExpanded by remember { mutableStateOf(false) }
+                val currencies = uiState.currencies
+                var selectedCurrency by remember { mutableStateOf(uiState.user?.mainCurrency ?: "EUR") }
+
+                LaunchedEffect(uiState.user?.mainCurrency) {
+                    val user = uiState.user
+                    if (user?.mainCurrency != null) {
+                        selectedCurrency = user.mainCurrency
+                    }
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = currencyExpanded,
+                    onExpandedChange = { currencyExpanded = !currencyExpanded },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)
+                ) {
+                    OutlinedTextField(
+                        value = selectedCurrency,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(R.string.main_currency)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = currencyExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        enabled = !uiState.isSaving && !uiState.isLoading
+                    )
+                    ExposedDropdownMenu(
+                        expanded = currencyExpanded,
+                        onDismissRequest = { currencyExpanded = false }
+                    ) {
+                        currencies.forEach { currency ->
+                            DropdownMenuItem(
+                                text = { Text(currency) },
+                                onClick = {
+                                    selectedCurrency = currency
+                                    currencyExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 if (uiState.error != null) {
                     Text(
@@ -159,14 +196,15 @@ fun ProfileScreen(
                 }
 
                 Button(
-                    onClick = { viewModel.updateProfile(name) },
+                    onClick = { viewModel.updateProfile(name, selectedCurrency) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = name.isNotBlank() && !uiState.isSaving && !uiState.isLoading && name != uiState.user?.name
+                    enabled = name.isNotBlank() && !uiState.isSaving && !uiState.isLoading && 
+                            (name != uiState.user?.name || selectedCurrency != uiState.user?.mainCurrency)
                 ) {
                     if (uiState.isSaving) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                     } else {
-                        Text("Save Changes")
+                        Text(stringResource(R.string.save_changes))
                     }
                 }
 
@@ -178,7 +216,7 @@ fun ProfileScreen(
                     enabled = !uiState.isLoading,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Sign Out")
+                    Text(stringResource(R.string.sign_out))
                 }
             }
 

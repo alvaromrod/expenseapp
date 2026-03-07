@@ -1,0 +1,132 @@
+<resources>
+    <string name="app_name">ExpenseApp</string>
+    <string name="lets_set_up_profile">Configuremos tu perfil</string>
+    <string name="email">Correo electrónico</string>
+    <string name="password">Contraseña</string>
+    <string name="log_expense">Registrar Gasto</string>
+    <string name="group">Grupo</string>
+    <string name="manage">Gestionar</string>
+    <string name="amount">Cantidad</string>
+    <string name="unit">Unidad</string>
+    <string name="description_optional">Descripción (opcional)</string>
+    <string name="description_optional_caps">Descripción (Opcional)</string>
+    <string name="equally">A partes iguales</string>
+    <string name="custom_amounts">Cantidades personalizadas</string>
+    <string name="save_expense">Guardar Gasto</string>
+    <string name="select_group_prompt">Seleccione un grupo para dividir gastos</string>
+    <string name="category_name">Nombre de categoría</string>
+    <string name="cancel">Cancelar</string>
+    <string name="save">Guardar</string>
+    <string name="delete">Eliminar</string>
+    <string name="close">Cerrar</string>
+    <string name="add_new">Añadir Nuevo</string>
+    <string name="edit_group">Editar Grupo</string>
+    <string name="group_name">Nombre del Grupo</string>
+    <string name="main_currency">Moneda Principal</string>
+    <string name="settle_up">Saldar Cuentas</string>
+    <string name="groups">Grupos</string>
+    <string name="join_group">Unirse al Grupo</string>
+    <string name="paste_group_link">Pegue el enlace o ID del grupo a continuación:</string>
+    <string name="join">Unirse</string>
+    <string name="no_groups_yet">Aún no hay grupos. ¡Crea uno!</string>
+    <string name="members">Miembros:</string>
+    <string name="share_group">Compartir %1$s</string>
+    <string name="invite_others">Invita a otros a unirse a este grupo con este enlace:</string>
+    <string name="copy_link">Copiar Enlace</string>
+    <string name="create_group">Crear Grupo</string>
+    <string name="create">Crear</string>
+    <string name="go_back">Volver</string>
+    <string name="join_now">Unirse Ahora</string>
+    <string name="scan_qr_code">Escanear Código QR</string>
+    <string name="camera_permission_required">Se necesita permiso de cámara para escanear QR</string>
+    <string name="settle_balances">Saldar Balances</string>
+    <string name="record_payment">Registrar Pago y Saldar</string>
+    <string name="delete_expense">Eliminar Gasto</string>
+    <string name="delete_expense_confirmation">¿Estás seguro de que deseas eliminar este gasto?</string>
+    <string name="manage_groups">Gestionar Grupos</string>
+    <string name="whats_your_name">¿Cuál es tu nombre?</string>
+    <string name="complete_setup">Completar Configuración</string>
+    <string name="profile">Perfil</string>
+    <string name="display_name">Nombre Visible</string>
+    <string name="save_changes">Guardar Cambios</string>
+    <string name="sign_out">Cerrar Sesión</string>
+    <string name="spending_analysis">Análisis de Gastos</string>
+    <string name="all_groups_general">Todos los Grupos (General)</string>
+    <string name="all_categories">Todas las Categorías</string>
+    <string name="welcome_to_expenseapp">Bienvenido a ExpenseApp</string>
+    <string name="sign_up">Registrarse</string>
+    <string name="login">Iniciar sesión</string>
+    <string name="already_have_account">¿Ya tienes cuenta? Inicia sesión</string>
+    <string name="dont_have_account">¿No tienes cuenta? Regístrate</string>
+    <string name="welcome_exclamation">¡Bienvenido!</string>
+    <string name="unknown_error">Error desconocido</string>
+    <string name="a_new_group">un grupo nuevo</string>
+    <string name="invited_to_join">Te han invitado a unirte a</string>
+    <string name="members_title">Miembros</string>
+    <string name="group_balances_default">Balances del Grupo</string>
+    <string name="group_balances_named">Balances de %1$s</string>
+    <string name="net_balances">Balances Netos</string>
+    <string name="is_owed">se le debe</string>
+    <string name="owes">debe</string>
+    <string name="is_settled_up">está saldado</string>
+    <string name="settle_all_balances_prompt">¿Saldar todos los balances de %1$s?</string>
+    <string name="settle_up_description">Esto marcará todos los gastos actuales como archivados. Ya no contarán para la deuda total del grupo, pero se mantendran en tu historial.</string>
+    <string name="record_payment_and_settle">Registrar Pago y Saldar</string>
+
+    <string name="scan_receipt">Escanear Recibo</string>
+    <string name="select_group">Seleccionar Grupo</string>
+
+    <string name="category">Categoría</string>
+
+
+
+
+    <string name="split_with">Dividir con:</string>
+
+
+    <string name="remaining_to_assign">Falta por asignar: %1$s</string>
+
+    <string name="select_group_to_split">Selecciona un grupo para dividir gastos</string>
+    <string name="manage_categories">Gestionar Categorías</string>
+    <string name="category_name_label">Nombre de la Categoría</string>
+    <string name="select_icon">Seleccionar Icono</string>
+    <string name="select_color">Seleccionar Color</string>
+
+
+
+    <string name="confirm_delete_expense">¿Seguro que quieres eliminar este gasto?</string>
+
+    <string name="statistics">Estadísticas</string>
+    <string name="add_expense">Añadir Gasto</string>
+    <string name="recent_expenses">Gastos Recientes</string>
+    <string name="no_active_expenses">No hay gastos recientes. ¡Toca + para añadir uno!</string>
+    <string name="you_are_owed">Te deben</string>
+    <string name="you_owe">Debes</string>
+    <string name="paid_by">Pagado por</string>
+    <string name="paid_by_label">Pagado por: %1$s</string>
+    <string name="suggested_transfers">Transferencias Sugeridas</string>
+    <string name="transfer_summary">%1$s paga a %2$s</string>
+    <string name="settle">Saldar</string>
+    <string name="all_settled_up">¡Todo al día!</string>
+
+    <!-- Statistics Screen -->
+    <string name="no_expenses_found">No se han encontrado gastos para esta selección.</string>
+    <string name="breakdown_by_category">Desglose por Categoría</string>
+    <string name="total_spent_normalized">Total Gastado (Normalizado a %1$s)</string>
+    <string name="from">Desde</string>
+    <string name="to">Hasta</string>
+    <string name="unknown">Desconocido</string>
+
+    <!-- Default Categories -->
+    <string name="cat_eating_out">Comer fuera</string>
+    <string name="cat_transport">Transporte</string>
+    <string name="cat_rent_housing">Alquiler y Vivienda</string>
+    <string name="cat_supermarket">Supermercado</string>
+    <string name="cat_traveling">Viajes</string>
+    <string name="cat_entertainment">Entretenimiento</string>
+    <string name="cat_health">Salud</string>
+    <string name="cat_education">Educación</string>
+    <string name="cat_shopping">Compras</string>
+    <string name="cat_utilities">Suministros</string>
+    <string name="cat_other">Otros</string>
+</resources>

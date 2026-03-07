@@ -9,9 +9,10 @@ fun ExpenseEntity.toDomain(splits: List<Split> = emptyList()) = Expense(
     paidById = paid_by_id,
     description = description,
     amount = amount,
-    currency = "USD", 
+    currency = currency,
     date = date,
-    categoryId = "default",
+    categoryId = category_id,
+    isArchived = is_archived,
     splits = splits
 )
 
@@ -23,32 +24,39 @@ fun Expense.toEntity() = ExpenseEntity(
     amount = amount,
     currency = currency,
     date = date,
-    category_id = categoryId
+    category_id = categoryId,
+    is_archived = isArchived
 )
 
 fun UserEntity.toDomain() = User(
     id = id,
     name = name,
     email = email,
-    avatarUrl = avatar_url
+    avatarUrl = avatar_url,
+    mainCurrency = main_currency
 )
 
 fun User.toEntity() = UserEntity(
     id = id,
     name = name,
     email = email,
-    avatar_url = avatarUrl
+    avatar_url = avatarUrl,
+    main_currency = mainCurrency
 )
 
 fun GroupEntity.toDomain() = Group(
     id = id,
     name = name,
+    description = description,
+    mainCurrency = main_currency,
     createdAt = created_at
 )
 
 fun Group.toEntity() = GroupEntity(
     id = id,
     name = name,
+    description = description,
+    main_currency = mainCurrency,
     created_at = createdAt
 )
 
@@ -70,12 +78,14 @@ fun CategoryEntity.toDomain() = Category(
     id = id,
     name = name,
     iconName = icon_name,
-    colorHex = color_hex
+    colorHex = color_hex,
+    groupId = group_id
 )
 
 fun Category.toEntity() = CategoryEntity(
     id = id,
     name = name,
     icon_name = iconName,
-    color_hex = colorHex
+    color_hex = colorHex,
+    group_id = groupId
 )

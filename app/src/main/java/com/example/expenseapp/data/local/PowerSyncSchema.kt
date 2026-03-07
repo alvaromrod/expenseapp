@@ -14,7 +14,8 @@ val appSchema = Schema(
             Column.real("amount"),
             Column.text("currency"),
             Column.integer("date"),
-            Column.text("category_id")
+            Column.text("category_id"),
+            Column.integer("is_archived")
         )
     ),
     Table(
@@ -29,6 +30,8 @@ val appSchema = Schema(
         name = "groups",
         columns = listOf(
             Column.text("name"),
+            Column.text("description"),
+            Column.text("main_currency"),
             Column.integer("created_at")
         )
     ),
@@ -45,7 +48,8 @@ val appSchema = Schema(
         columns = listOf(
             Column.text("name"),
             Column.text("icon_name"),
-            Column.text("color_hex")
+            Column.text("color_hex"),
+            Column.text("group_id")
         )
     ),
     Table(

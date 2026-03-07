@@ -4,5 +4,6 @@ data class User(
     val id: String, // Maps to Supabase Auth UUID
     val name: String,
     val email: String,
-    val avatarUrl: String? = null
+    val avatarUrl: String? = null,
+    val mainCurrency: String = "EUR"
 )

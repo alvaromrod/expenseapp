@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import android.util.Log
 import com.example.expenseapp.domain.model.User
 import com.example.expenseapp.domain.repository.UserRepository
+import com.example.expenseapp.domain.repository.currency.CurrencyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,12 +27,14 @@ data class ProfileUiState(
     val user: User? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val currencies: List<String> = emptyList()
 )
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val currencyRepository: CurrencyRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState(isLoading = true))
@@ -42,6 +45,7 @@ class ProfileViewModel @Inject constructor(
 
     init {
         Log.d("ProfileViewModel", "Initializing ProfileViewModel")
+        _uiState.update { it.copy(currencies = currencyRepository.getSupportedCurrencies()) }
         loadProfile()
     }
 
@@ -57,12 +61,12 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun updateProfile(name: String) {
+    fun updateProfile(name: String, mainCurrency: String) {
         val currentUser = _uiState.value.user ?: return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true)
             try {
-                userRepository.updateProfile(currentUser.copy(name = name))
+                userRepository.updateProfile(currentUser.copy(name = name, mainCurrency = mainCurrency))
                 _uiState.value = _uiState.value.copy(isSaving = false)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

@@ -12,5 +12,6 @@ data class ExpenseEntity(
     val amount: Double,
     val currency: String,
     val date: Long,
-    val category_id: String
+    val category_id: String,
+    val is_archived: Boolean = false
 )

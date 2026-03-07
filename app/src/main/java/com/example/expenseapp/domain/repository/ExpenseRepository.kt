@@ -11,4 +11,6 @@ interface ExpenseRepository {
     suspend fun upsertExpense(expense: Expense)
     suspend fun deleteExpense(expense: Expense)
     suspend fun getSplitsForExpense(expenseId: String): Flow<List<Split>>
+    suspend fun archiveExpenses(groupId: String)
+    suspend fun syncExpensesFromSupabase(groupId: String)
 }

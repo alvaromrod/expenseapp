@@ -7,6 +7,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import com.example.expenseapp.core.session.SessionManager
+import com.example.expenseapp.domain.repository.UserRepository
 import com.example.expenseapp.data.local.dao.UserDao
 import com.example.expenseapp.data.local.entity.UserEntity
 import android.util.Log
@@ -19,6 +20,7 @@ import javax.inject.Inject
 
 sealed class AuthEvent {
     object NavigateToHome : AuthEvent()
+    data class NavigateToOnboarding(val userId: String?) : AuthEvent()
     data class ShowError(val message: String) : AuthEvent()
 }
 
@@ -31,6 +33,7 @@ data class AuthUiState(
 class AuthViewModel @Inject constructor(
     private val supabaseClient: SupabaseClient,
     private val sessionManager: SessionManager,
+    private val userRepository: UserRepository,
     private val userDao: UserDao
 ) : ViewModel() {
 
@@ -62,7 +65,25 @@ class AuthViewModel @Inject constructor(
                     this.email = email
                     this.password = password
                 }
-                _events.emit(AuthEvent.NavigateToHome)
+                
+                // Sync user data to local DB. Use the ID from the current session.
+                val authUser = supabaseClient.auth.currentUserOrNull()
+                val finalUserId = authUser?.id ?: supabaseClient.auth.currentSessionOrNull()?.user?.id
+                
+                if (finalUserId != null) {
+                    sessionManager.saveSession(finalUserId)
+                    val user = userRepository.syncUserFromSupabase(finalUserId)
+                    
+                    // Navigate to onboarding if profile is incomplete
+                    if (user == null || user.name.isBlank()) {
+                        _events.emit(AuthEvent.NavigateToOnboarding(finalUserId))
+                    } else {
+                        _events.emit(AuthEvent.NavigateToHome)
+                    }
+                } else {
+                    // Not logged in after sign up (e.g., requires email confirmation)
+                    _events.emit(AuthEvent.ShowError("Sign up successful! Please check your email to verify your account."))
+                }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Supabase Sign Up Error", e)
                 _uiState.value = AuthUiState(error = e.message ?: "Unknown error occurred")
@@ -93,7 +114,22 @@ class AuthViewModel @Inject constructor(
                     this.email = email
                     this.password = password
                 }
-                _events.emit(AuthEvent.NavigateToHome)
+                
+                // Sync user data to local DB
+                val authUser = supabaseClient.auth.currentUserOrNull()
+                val finalUserId = authUser?.id ?: supabaseClient.auth.currentSessionOrNull()?.user?.id
+                if (finalUserId != null) {
+                    sessionManager.saveSession(finalUserId)
+                }
+                
+                val user = userRepository.syncUserFromSupabase(finalUserId)
+                
+                // Navigate to onboarding if profile is incomplete
+                if (user == null || user.name.isBlank()) {
+                    _events.emit(AuthEvent.NavigateToOnboarding(finalUserId))
+                } else {
+                    _events.emit(AuthEvent.NavigateToHome)
+                }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Supabase Sign In Error", e)
                 _uiState.value = AuthUiState(error = e.message ?: "Unknown error occurred")

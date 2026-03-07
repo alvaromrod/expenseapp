@@ -19,7 +19,7 @@ import com.example.expenseapp.data.local.dao.*
         CategoryEntity::class,
         GroupMemberEntity::class
     ],
-    version = 2,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

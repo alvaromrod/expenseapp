@@ -17,4 +17,7 @@ interface CategoryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategories(categories: List<CategoryEntity>)
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun deleteCategoryById(id: String)
 }

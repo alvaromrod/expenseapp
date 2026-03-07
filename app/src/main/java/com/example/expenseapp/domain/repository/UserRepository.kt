@@ -9,5 +9,6 @@ interface UserRepository {
     suspend fun getUserById(id: String): User?
     suspend fun updateProfile(user: User)
     suspend fun uploadAvatar(imageBytes: ByteArray): String
+    suspend fun syncUserFromSupabase(userId: String? = null): User?
     suspend fun signOut()
 }

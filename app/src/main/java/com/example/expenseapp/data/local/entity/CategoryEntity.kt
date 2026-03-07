@@ -8,5 +8,6 @@ data class CategoryEntity(
     @PrimaryKey val id: String,
     val name: String,
     val icon_name: String,
-    val color_hex: String
+    val color_hex: String,
+    val group_id: String? = null
 )

@@ -9,5 +9,6 @@ data class Expense(
     val currency: String,
     val date: Long,
     val categoryId: String,
+    val isArchived: Boolean = false,
     val splits: List<Split> = emptyList()
 )

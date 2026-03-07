@@ -27,6 +27,10 @@ browser = "1.8.0"
 material = "1.13.0"
 sqliteBundled = "2.4.0"
 datastore = "1.1.1"
+zxing = "3.5.3"
+camerax = "1.3.4"
+mlkit-barcode-scanning = "17.3.0"
+accompanist = "0.34.0"
 
 [libraries]
 # PowerSync & Supabase
@@ -70,6 +74,14 @@ androidx-browser = { group = "androidx.browser", name = "browser", version.ref =
 google-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqliteBundled" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
+mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkit-barcode-scanning" }
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -77,3 +89,4 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
