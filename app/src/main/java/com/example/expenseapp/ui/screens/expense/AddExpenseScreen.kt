@@ -67,6 +67,7 @@ fun AddExpenseScreen(
     val editDescription by viewModel.editDescription.collectAsState()
     val editAmount by viewModel.editAmount.collectAsState()
     val editSplits by viewModel.editSplits.collectAsState()
+    val isEditMode = viewModel.isEditMode
     
     val selectedUserIds = remember { mutableStateListOf<String>() }
     val customAmounts = remember { mutableStateMapOf<String, String>() }
@@ -74,7 +75,7 @@ fun AddExpenseScreen(
 
     var hasPreFilled by remember { mutableStateOf(false) }
     LaunchedEffect(editDescription, editAmount, editSplits, users) {
-        if (!hasPreFilled && editDescription != null && users.isNotEmpty()) {
+        if (isEditMode && !hasPreFilled && editDescription != null && users.isNotEmpty()) {
             // WAIT until all participants from the database are found in our users list
             // If they aren't all here yet, we might be mid-sync, so wait for the next emission.
             val allParticipantsLoaded = editSplits.isEmpty() || 
@@ -102,13 +103,18 @@ fun AddExpenseScreen(
                 val totalAmt = editAmount?.replace(',', '.')?.toDoubleOrNull() ?: 0.0
                 val equalShare = if (selectedUserIds.isNotEmpty()) totalAmt / selectedUserIds.size else 0.0
                 isCustomSplit = editSplits.values.any { Math.abs(it - equalShare) > 0.01 }
-            } else {
-                // NEW expense: default to everyone selected
-                selectedUserIds.clear()
-                selectedUserIds.addAll(users.map { it.id })
             }
             
             hasPreFilled = true
+        }
+    }
+
+    var lastGroupId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(selectedGroupId, users) {
+        if (!isEditMode && users.isNotEmpty() && selectedGroupId != lastGroupId) {
+            selectedUserIds.clear()
+            selectedUserIds.addAll(users.map { it.id })
+            lastGroupId = selectedGroupId
         }
     }
 

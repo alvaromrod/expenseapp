@@ -77,6 +77,8 @@ class AddExpenseViewModel @Inject constructor(
 
     // Expense ID for edit mode (null = create mode)
     private val expenseId: String? = savedStateHandle["expenseId"]
+    
+    val isEditMode: Boolean = expenseId != null
 
     val groups: StateFlow<List<com.example.expenseapp.domain.model.Group>> = groupRepository.getAllGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
