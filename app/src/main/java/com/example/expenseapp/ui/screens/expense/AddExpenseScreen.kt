@@ -109,12 +109,19 @@ fun AddExpenseScreen(
         }
     }
 
+    var hasInteracted by remember { mutableStateOf(false) }
     var lastGroupId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(selectedGroupId, users) {
-        if (!isEditMode && users.isNotEmpty() && selectedGroupId != lastGroupId) {
+    LaunchedEffect(selectedGroupId) {
+        if (selectedGroupId != lastGroupId) {
+            hasInteracted = false
+            lastGroupId = selectedGroupId
+        }
+    }
+
+    LaunchedEffect(users, hasInteracted) {
+        if (!isEditMode && users.isNotEmpty() && !hasInteracted) {
             selectedUserIds.clear()
             selectedUserIds.addAll(users.map { it.id })
-            lastGroupId = selectedGroupId
         }
     }
 
@@ -445,6 +452,7 @@ fun AddExpenseScreen(
                         Checkbox(
                             checked = selectedUserIds.contains(user.id),
                             onCheckedChange = { checked ->
+                                hasInteracted = true
                                 if (checked) {
                                     selectedUserIds.add(user.id)
                                     val equalShare = if (selectedUserIds.isNotEmpty()) totalAmount / selectedUserIds.size else 0.0
