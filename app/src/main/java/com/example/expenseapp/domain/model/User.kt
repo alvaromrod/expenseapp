@@ -5,5 +5,6 @@ data class User(
     val name: String,
     val email: String,
     val avatarUrl: String? = null,
-    val mainCurrency: String = "EUR"
+    val mainCurrency: String = "EUR",
+    val fcmToken: String? = null
 )

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +23,8 @@ import androidx.navigation.NavController
 import com.example.expenseapp.ui.navigation.Screen
 import androidx.compose.ui.res.stringResource
 import com.example.expenseapp.R
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,8 +122,88 @@ fun GroupScreen(
                                 IconButton(onClick = { showShareDialog = true }) {
                                     Icon(Icons.Default.Share, contentDescription = "Share Group")
                                 }
-                                IconButton(onClick = { viewModel.deleteGroup(group.id) }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete")
+                                
+                                val scope = rememberCoroutineScope()
+                                var showDeleteConfirm by remember { mutableStateOf(false) }
+                                var showLeaveConfirm by remember { mutableStateOf(false) }
+                                var showDebtWarning by remember { mutableStateOf(false) }
+
+                                if (members.size <= 1) {
+                                    IconButton(onClick = { showDeleteConfirm = true }) {
+                                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                                    }
+                                } else {
+                                    IconButton(onClick = {
+                                        scope.launch {
+                                            val balance = viewModel.getUserBalance(group.id)
+                                            if (abs(balance) < 0.01) {
+                                                showLeaveConfirm = true
+                                            } else {
+                                                showDebtWarning = true
+                                            }
+                                        }
+                                    }) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.ExitToApp, 
+                                            contentDescription = stringResource(R.string.leave_group)
+                                        )
+                                    }
+                                }
+
+                                if (showDeleteConfirm) {
+                                    AlertDialog(
+                                        onDismissRequest = { showDeleteConfirm = false },
+                                        title = { Text(stringResource(R.string.delete)) },
+                                        text = { Text(stringResource(R.string.delete_group_warning)) },
+                                        confirmButton = {
+                                            Button(
+                                                onClick = {
+                                                    viewModel.deleteGroup(group.id)
+                                                    showDeleteConfirm = false
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                            ) { Text(stringResource(R.string.yes)) }
+                                        },
+                                        dismissButton = {
+                                            TextButton(onClick = { showDeleteConfirm = false }) {
+                                                Text(stringResource(R.string.no))
+                                            }
+                                        }
+                                    )
+                                }
+
+                                if (showLeaveConfirm) {
+                                    AlertDialog(
+                                        onDismissRequest = { showLeaveConfirm = false },
+                                        title = { Text(stringResource(R.string.leave_group)) },
+                                        text = { Text(stringResource(R.string.confirm_leave_group)) },
+                                        confirmButton = {
+                                            Button(
+                                                onClick = {
+                                                    viewModel.leaveGroup(group.id)
+                                                    showLeaveConfirm = false
+                                                }
+                                            ) { Text(stringResource(R.string.yes)) }
+                                        },
+                                        dismissButton = {
+                                            TextButton(onClick = { showLeaveConfirm = false }) {
+                                                Text(stringResource(R.string.no))
+                                            }
+                                        }
+                                    )
+                                }
+
+                                if (showDebtWarning) {
+                                    AlertDialog(
+                                        onDismissRequest = { showDebtWarning = false },
+                                        title = { Text(stringResource(R.string.leave_group)) },
+                                        text = { Text(stringResource(R.string.cannot_leave_group_debt)) },
+                                        confirmButton = {
+                                            Button(onClick = { showDebtWarning = false }) {
+                                                Text(stringResource(R.string.close))
+                                            }
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -179,7 +262,7 @@ fun GroupScreen(
         if (showAddDialog) {
             var description by remember { mutableStateOf("") }
             var selectedCurrency by remember { mutableStateOf("EUR") }
-            val currencies = listOf("EUR", "USD", "GBP", "JPY", "CAD", "AUD")
+            val currencies = listOf("EUR", "USD", "GBP", "JPY", "CAD", "AUD", "ARS")
             var expanded by remember { mutableStateOf(false) }
 
             AlertDialog(

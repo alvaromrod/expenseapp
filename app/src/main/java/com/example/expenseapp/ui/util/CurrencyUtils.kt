@@ -15,6 +15,7 @@ fun getCurrencySymbol(code: String?): String {
         "CNY" -> "¥"
         "KRW" -> "₩"
         "INR" -> "₹"
+        "ARS" -> "$"
         else -> code ?: ""
     }
 }

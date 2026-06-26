@@ -13,6 +13,8 @@ interface GroupRepository {
     suspend fun createGroup(group: Group)
     suspend fun updateGroup(group: Group)
     suspend fun deleteGroup(id: String)
+    suspend fun leaveGroup(groupId: String)
     suspend fun removeMemberFromGroup(groupId: String, userId: String)
+    suspend fun syncGroupsFromSupabase(force: Boolean = false)
     suspend fun syncGroupMembersFromSupabase(groupId: String)
 }

@@ -2,6 +2,7 @@ package com.example.expenseapp.data.repository
 
 import com.example.expenseapp.data.local.dao.GroupDao
 import com.example.expenseapp.data.local.dao.GroupMemberDao
+import com.example.expenseapp.data.local.dao.ExpenseDao
 import com.example.expenseapp.data.local.entity.GroupMemberEntity
 import com.example.expenseapp.data.repository.mapper.toDomain
 import com.example.expenseapp.data.repository.mapper.toEntity
@@ -27,15 +28,22 @@ import kotlinx.coroutines.launch
 class GroupRepositoryImpl @Inject constructor(
     private val groupDao: GroupDao,
     private val groupMemberDao: GroupMemberDao,
+    private val expenseDao: ExpenseDao,
     private val userRepository: com.example.expenseapp.domain.repository.UserRepository,
     private val supabaseClient: SupabaseClient,
     private val externalScope: CoroutineScope
 ) : GroupRepository {
 
     override fun getAllGroups(): Flow<List<Group>> {
-        return groupDao.getAllGroups().map { entities ->
-            entities.map { it.toDomain() }
-        }
+        return groupDao.getAllGroups()
+            .onStart {
+                externalScope.launch {
+                    syncGroupsFromSupabase(force = false)
+                }
+            }
+            .map { entities ->
+                entities.map { it.toDomain() }
+            }
     }
 
     override fun getMembersForGroup(groupId: String): Flow<List<User>> {
@@ -57,8 +65,8 @@ class GroupRepositoryImpl @Inject constructor(
 
     @Serializable
     private data class RemoteMember(
-        val group_id: String,
-        val user_id: String,
+        val group_id: String = "",
+        val user_id: String = "",
         val joined_at: String? = null
     )
 
@@ -186,13 +194,41 @@ class GroupRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateGroup(group: Group) {
+        // 1. Update locally
         groupDao.insertGroup(group.toEntity()) // insertGroup uses REPLACE
+        
+        // 2. Push to Supabase
+        externalScope.launch {
+            try {
+                val tables = listOf("groups", "group", "expense_groups")
+                val data = mapOf(
+                    "name" to group.name,
+                    "description" to group.description,
+                    "main_currency" to group.mainCurrency
+                )
+                for (table in tables) {
+                    try {
+                        supabaseClient.postgrest[table].update(data) {
+                            filter { eq("id", group.id) }
+                        }
+                        Log.d("GroupRepository", "Updated group ${group.id} in remote table '$table'")
+                        break
+                    } catch (e: Exception) {
+                        Log.w("GroupRepository", "Failed to update in table '$table'")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("GroupRepository", "Failed to sync group update to Supabase", e)
+            }
+        }
     }
 
     override suspend fun deleteGroup(id: String) {
         // 1. Delete locally
         val group = groupDao.getGroupById(id)
         if (group != null) {
+            // Cleanup all associated data
+            expenseDao.deleteExpensesByGroupId(id)
             groupMemberDao.deleteMembersByGroupId(id)
             groupDao.deleteGroup(group)
         }
@@ -203,7 +239,13 @@ class GroupRepositoryImpl @Inject constructor(
                 // In Supabase, delete from the three possible tables we use (groups, group, expense_groups)
                 val tables = listOf("groups", "group", "expense_groups")
                 
-                // First delete members (if FK cascade not set)
+                // First delete expenses (if FK cascade not set)
+                // Note: We might need to delete splits too if not cascaded, but assuming cascade for now
+                supabaseClient.postgrest["expenses"].delete {
+                    filter { eq("group_id", id) }
+                }
+
+                // Delete members
                 supabaseClient.postgrest["group_members"].delete {
                     filter { eq("group_id", id) }
                 }
@@ -217,15 +259,110 @@ class GroupRepositoryImpl @Inject constructor(
                         Log.w("GroupRepository", "Failed to delete from table '$table' (might not exist)")
                     }
                 }
-                Log.d("GroupRepository", "Successfully deleted group $id from remote")
+                Log.d("GroupRepository", "Successfully deleted group $id and all associated data from remote")
             } catch (e: Exception) {
                 Log.e("GroupRepository", "Failed to sync group deletion to Supabase", e)
             }
         }
     }
 
+    override suspend fun leaveGroup(groupId: String) {
+        val authUser = supabaseClient.auth.currentUserOrNull() ?: return
+        
+        // 1. Delete membership locally
+        groupMemberDao.removeMember(groupId, authUser.id)
+        
+        // 2. Remove group locally if no other members (though UI handles the split, repository should be defensive)
+        // Actually, just syncing again later would handle it, or we can explicitly check
+        
+        // 3. Push to Supabase
+        externalScope.launch {
+            try {
+                supabaseClient.postgrest["group_members"].delete {
+                    filter {
+                        eq("group_id", groupId)
+                        eq("user_id", authUser.id)
+                    }
+                }
+                Log.d("GroupRepository", "User ${authUser.id} left group $groupId in remote")
+            } catch (e: Exception) {
+                Log.e("GroupRepository", "Failed to push leave group to Supabase", e)
+            }
+        }
+    }
+
     override suspend fun removeMemberFromGroup(groupId: String, userId: String) {
         groupMemberDao.removeMember(groupId, userId)
+        
+        // Push remote removal
+        externalScope.launch {
+            try {
+                supabaseClient.postgrest["group_members"].delete {
+                    filter {
+                        eq("group_id", groupId)
+                        eq("user_id", userId)
+                    }
+                }
+                Log.d("GroupRepository", "Removed member $userId from group $groupId in remote")
+            } catch (e: Exception) {
+                Log.e("GroupRepository", "Failed to push member removal to Supabase", e)
+            }
+        }
+    }
+
+    private val syncThrottler = mutableMapOf<String, Long>()
+
+    override suspend fun syncGroupsFromSupabase(force: Boolean) {
+        try {
+            val authUser = supabaseClient.auth.currentUserOrNull() ?: return
+
+            val now = System.currentTimeMillis()
+            val lastSync = syncThrottler["groups_all"] ?: 0L
+            if (!force && now - lastSync < 5 * 60 * 1000) return // 5 min throttle
+            syncThrottler["groups_all"] = now
+            
+            // 1. Fetch group IDs where user is a member (must select both columns to satisfy RemoteMember non-null fields)
+            val memberships = supabaseClient.postgrest["group_members"]
+                .select(Columns.list("group_id", "user_id")) {
+                    filter { eq("user_id", authUser.id) }
+                }.decodeList<RemoteMember>()
+            
+            val remoteIds = memberships.map { it.group_id }
+            
+            if (remoteIds.isNotEmpty()) {
+                // 2. Fetch full group details
+                val tables = listOf("groups", "group", "expense_groups")
+                var fetchedGroups: List<RemoteGroup>? = null
+                for (table in tables) {
+                    try {
+                        fetchedGroups = supabaseClient.postgrest[table]
+                            .select() {
+                                filter { isIn("id", remoteIds) }
+                            }.decodeList<RemoteGroup>()
+                        if (fetchedGroups.isNotEmpty()) break
+                    } catch (e: Exception) { /* skip */ }
+                }
+
+                fetchedGroups?.forEach { remote ->
+                    groupDao.insertGroup(Group(
+                        id = remote.id,
+                        name = remote.name,
+                        description = remote.description,
+                        mainCurrency = remote.main_currency,
+                        createdAt = parseTimestamp(remote.created_at)
+                    ).toEntity())
+                }
+
+                // 3. Reconcile: Delete local groups where user is no longer a member
+                groupDao.deleteGroupsNotIn(remoteIds)
+            } else {
+                // User has no groups on server, clear local groups
+                groupDao.deleteGroupsNotIn(emptyList())
+            }
+            Log.d("GroupRepository", "Synced groups from Supabase for user ${authUser.id}")
+        } catch (e: Exception) {
+            Log.e("GroupRepository", "Sync groups failed", e)
+        }
     }
 
     override suspend fun syncGroupMembersFromSupabase(groupId: String) {
@@ -237,6 +374,7 @@ class GroupRepositoryImpl @Inject constructor(
                 }.decodeList<RemoteMember>()
             
             Log.d("GroupRepository", "Found ${remoteMembers.size} members in Supabase for group $groupId")
+            val remoteUserIds = remoteMembers.map { it.user_id }
             
             remoteMembers.forEach { remote ->
                 Log.d("GroupRepository", "Processing member: ${remote.user_id}")
@@ -247,6 +385,10 @@ class GroupRepositoryImpl @Inject constructor(
                 // 2. Ensure membership exists locally AFTER the user is persisted
                 groupMemberDao.insertMember(GroupMemberEntity(remote.group_id, remote.user_id))
             }
+
+            // Reconciliation: Remove local members that are no longer in the remote group
+            groupMemberDao.deleteMembersNotIn(groupId, remoteUserIds)
+            Log.d("GroupRepository", "Reconciled group members for $groupId")
         } catch (e: Exception) {
             Log.e("GroupRepository", "Failed to sync members for group $groupId from Supabase", e)
         }

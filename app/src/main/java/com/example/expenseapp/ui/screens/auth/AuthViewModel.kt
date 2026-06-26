@@ -8,6 +8,9 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import com.example.expenseapp.core.session.SessionManager
 import com.example.expenseapp.domain.repository.UserRepository
+import com.example.expenseapp.domain.repository.GroupRepository
+import com.example.expenseapp.domain.repository.ExpenseRepository
+import com.example.expenseapp.data.local.AppDatabase
 import com.example.expenseapp.data.local.dao.UserDao
 import com.example.expenseapp.data.local.entity.UserEntity
 import android.util.Log
@@ -15,6 +18,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,6 +38,9 @@ class AuthViewModel @Inject constructor(
     private val supabaseClient: SupabaseClient,
     private val sessionManager: SessionManager,
     private val userRepository: UserRepository,
+    private val groupRepository: GroupRepository,
+    private val expenseRepository: ExpenseRepository,
+    private val appDatabase: AppDatabase,
     private val userDao: UserDao
 ) : ViewModel() {
 
@@ -46,7 +53,7 @@ class AuthViewModel @Inject constructor(
     // Expose persistent session for AppNavigation to determine start destination
     val currentUserId = sessionManager.currentUserFlow
 
-    fun signUpWithEmail(email: String, password: String) {
+    fun signUpWithEmail(name: String, email: String, password: String) {
         viewModelScope.launch {
             _uiState.value = AuthUiState(isLoading = true)
             
@@ -72,9 +79,16 @@ class AuthViewModel @Inject constructor(
                 
                 if (finalUserId != null) {
                     sessionManager.saveSession(finalUserId)
-                    val user = userRepository.syncUserFromSupabase(finalUserId)
+                    syncAllUserDataAfterLogin(finalUserId)
                     
-                    // Navigate to onboarding if profile is incomplete
+                    val user = userRepository.getUserById(finalUserId)
+                    
+                    // Immediately update with the name provided during signup
+                    if (user != null) {
+                        userRepository.updateProfile(user.copy(name = name.trim()))
+                    }
+                    
+                    // Navigate to onboarding if profile is incomplete (currency etc still needed)
                     if (user == null || user.name.isBlank()) {
                         _events.emit(AuthEvent.NavigateToOnboarding(finalUserId))
                     } else {
@@ -120,9 +134,10 @@ class AuthViewModel @Inject constructor(
                 val finalUserId = authUser?.id ?: supabaseClient.auth.currentSessionOrNull()?.user?.id
                 if (finalUserId != null) {
                     sessionManager.saveSession(finalUserId)
+                    syncAllUserDataAfterLogin(finalUserId)
                 }
                 
-                val user = userRepository.syncUserFromSupabase(finalUserId)
+                val user = userRepository.getUserById(finalUserId ?: "")
                 
                 // Navigate to onboarding if profile is incomplete
                 if (user == null || user.name.isBlank()) {
@@ -137,6 +152,38 @@ class AuthViewModel @Inject constructor(
             } finally {
                 _uiState.value = _uiState.value.copy(isLoading = false)
             }
+        }
+    }
+
+    private suspend fun syncAllUserDataAfterLogin(userId: String) {
+        try {
+            Log.d("AuthViewModel", "Starting proactive full sync for user $userId...")
+            // Clear any local databases before syncing to prevent cross-user data persistence
+            try {
+                appDatabase.clearAllTables()
+                Log.d("AuthViewModel", "Cleared all tables in Room before proactive sync")
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Failed to clear Room tables", e)
+            }
+
+            // 1. Sync user profile
+            userRepository.syncUserFromSupabase(userId, force = true)
+            
+            // 2. Sync groups
+            groupRepository.syncGroupsFromSupabase(force = true)
+            
+            // 3. Get the synced groups from local database
+            val groups = groupRepository.getAllGroups().first()
+            Log.d("AuthViewModel", "Proactively synced ${groups.size} groups. Syncing members & expenses...")
+            
+            // 4. Sync members and expenses for each group
+            groups.forEach { group ->
+                groupRepository.syncGroupMembersFromSupabase(group.id)
+                expenseRepository.syncExpensesFromSupabase(group.id, force = true)
+            }
+            Log.d("AuthViewModel", "Proactive sync completed successfully!")
+        } catch (e: Exception) {
+            Log.e("AuthViewModel", "Proactive sync failed after login", e)
         }
     }
 

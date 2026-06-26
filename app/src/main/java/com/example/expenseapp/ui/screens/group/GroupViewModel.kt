@@ -8,6 +8,8 @@ import com.example.expenseapp.domain.model.Group
 import com.example.expenseapp.domain.model.User
 import com.example.expenseapp.domain.repository.GroupRepository
 import com.example.expenseapp.domain.repository.UserRepository
+import com.example.expenseapp.domain.repository.ExpenseRepository
+import com.example.expenseapp.domain.repository.currency.CurrencyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +23,9 @@ import javax.inject.Inject
 @HiltViewModel
 class GroupViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val expenseRepository: ExpenseRepository,
+    private val currencyRepository: CurrencyRepository
 ) : ViewModel() {
 
     val groups: StateFlow<List<Group>> = groupRepository.getAllGroups()
@@ -68,6 +72,34 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch {
             groupRepository.deleteGroup(id)
         }
+    }
+
+    fun leaveGroup(groupId: String) {
+        viewModelScope.launch {
+            groupRepository.leaveGroup(groupId)
+        }
+    }
+
+    suspend fun getUserBalance(groupId: String): Double {
+        val group = groupRepository.getGroupFlow(groupId).firstOrNull() ?: return 0.0
+        val expenses = expenseRepository.getExpensesByGroup(groupId).firstOrNull() ?: return 0.0
+        val authUser = userRepository.syncUserFromSupabase(null) ?: return 0.0
+        
+        val rates = currencyRepository.getExchangeRates(group.mainCurrency)
+        val activeExpenses = expenses.filter { !it.isArchived }
+        
+        var balance = 0.0
+        activeExpenses.forEach { expense ->
+            val rate = rates[expense.currency] ?: 1.0
+            if (expense.paidById == authUser.id) {
+                balance += (expense.amount / rate)
+            }
+            val split = expense.splits.find { it.owedById == authUser.id }
+            if (split != null) {
+                balance -= (split.amountOwed / rate)
+            }
+        }
+        return balance
     }
 
     fun joinGroupByLink(link: String, navController: NavController) {

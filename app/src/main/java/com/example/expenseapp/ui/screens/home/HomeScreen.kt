@@ -1,5 +1,8 @@
 package com.example.expenseapp.ui.screens.home
 
+import androidx.compose.ui.draw.clip
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +18,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +44,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
+    var showArchived by remember { mutableStateOf(false) }
 
     // Confirmation dialog for deletion
     if (expenseToDelete != null) {
@@ -123,12 +128,15 @@ fun HomeScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                Column(
+                PullToRefreshBox(
+                    isRefreshing = uiState.isRefreshing,
+                    onRefresh = { viewModel.refresh() },
                     modifier = Modifier
                         .padding(padding)
                         .fillMaxSize()
                 ) {
-                    BalanceCard(
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        BalanceCard(
                         balance = uiState.totalBalance,
                         currencyCode = uiState.selectedGroup?.mainCurrency ?: "USD",
                         onClick = {
@@ -138,20 +146,38 @@ fun HomeScreen(
                         }
                     )
 
-                    Text(
-                        text = stringResource(R.string.recent_expenses),
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(16.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (showArchived) stringResource(R.string.archived_expenses) else stringResource(R.string.recent_expenses),
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        
+                        FilterChip(
+                            selected = showArchived,
+                            onClick = { showArchived = !showArchived },
+                            label = { Text(if (showArchived) stringResource(R.string.show_active) else stringResource(R.string.show_archived)) },
+                            leadingIcon = if (showArchived) { { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp)) } } else null
+                        )
+                    }
 
-                    val activeExpenses = uiState.expenses.filter { !it.isArchived }
-                    if (activeExpenses.isEmpty()) {
+                    val filteredExpenses = uiState.expenses.filter { it.isArchived == showArchived }
+                    if (filteredExpenses.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(stringResource(R.string.no_active_expenses), color = MaterialTheme.colorScheme.outline)
+                            Text(
+                                text = if (showArchived) stringResource(R.string.no_archived_expenses) 
+                                       else stringResource(R.string.no_active_expenses), 
+                                color = MaterialTheme.colorScheme.outline
+                            )
                         }
                     } else {
-                        LazyColumn {
-                            items(activeExpenses, key = { it.id }) { expense ->
+                        LazyColumn(modifier = Modifier.weight(1f)) {
+                            items(filteredExpenses, key = { it.id }) { expense ->
                                 val category = uiState.categoryMap[expense.categoryId]
                                 val user = uiState.userMap[expense.paidById]
                                 val paidByName = user?.name?.ifBlank { user.email } ?: expense.paidById
@@ -160,6 +186,7 @@ fun HomeScreen(
                                     categoryName = category?.name,
                                     categoryIcon = category?.iconName,
                                     paidByName = paidByName,
+                                    paidByAvatarUrl = user?.avatarUrl,
                                     onEditClick = {
                                         navController.navigate("add_expense?expenseId=${expense.id}")
                                     },
@@ -173,6 +200,7 @@ fun HomeScreen(
             }
         }
     }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -184,15 +212,10 @@ fun BalanceCard(balance: Double, currencyCode: String, onClick: () -> Unit) {
         animationSpec = tween(durationMillis = 500),
         label = "containerColor"
     )
-    val titleColor by animateColorAsState(
+    val contentColor by animateColorAsState(
         targetValue = if (isPositive) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onErrorContainer,
         animationSpec = tween(durationMillis = 500),
-        label = "titleColor"
-    )
-    val valueColor by animateColorAsState(
-        targetValue = if (isPositive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.error,
-        animationSpec = tween(durationMillis = 500),
-        label = "valueColor"
+        label = "contentColor"
     )
 
     Card(
@@ -201,7 +224,8 @@ fun BalanceCard(balance: Double, currencyCode: String, onClick: () -> Unit) {
             .padding(16.dp),
         onClick = onClick,
         colors = CardDefaults.cardColors(
-            containerColor = containerColor
+            containerColor = containerColor,
+            contentColor = contentColor
         )
     ) {
         Column(
@@ -210,14 +234,12 @@ fun BalanceCard(balance: Double, currencyCode: String, onClick: () -> Unit) {
         ) {
             Text(
                 text = if (isPositive) stringResource(R.string.you_are_owed) else stringResource(R.string.you_owe),
-                style = MaterialTheme.typography.titleMedium,
-                color = titleColor
+                style = MaterialTheme.typography.titleMedium
             )
             Text(
                 text = "${getCurrencySymbol(currencyCode)}${"%.2f".format(Math.abs(balance))}",
                 style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = valueColor
+                fontWeight = FontWeight.Bold
             )
         }
     }
@@ -229,6 +251,7 @@ fun ExpenseItem(
     categoryName: String?,
     categoryIcon: String?,
     paidByName: String,
+    paidByAvatarUrl: String?,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -268,6 +291,30 @@ fun ExpenseItem(
         ListItem(
             headlineContent = { Text(displayName) },
             supportingContent = { Text(supportingText) },
+            leadingContent = {
+                if (paidByAvatarUrl != null) {
+                    AsyncImage(
+                        model = paidByAvatarUrl,
+                        contentDescription = "Avatar",
+                        modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Surface(
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+            },
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

@@ -2,6 +2,7 @@ package com.example.expenseapp.ui.screens.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
 import com.example.expenseapp.domain.model.Category
 import com.example.expenseapp.domain.model.Expense
 import com.example.expenseapp.domain.repository.CategoryRepository
@@ -22,6 +23,7 @@ data class HomeUiState(
     val totalBalance: Double = 0.0,
     val isLoading: Boolean = true,
     val isSynced: Boolean = false,
+    val isRefreshing: Boolean = false,
     val categoryMap: Map<String, Category> = emptyMap(),
     val userMap: Map<String, com.example.expenseapp.domain.model.User> = emptyMap()
 )
@@ -54,11 +56,19 @@ class HomeViewModel @Inject constructor(
 
     private fun loadData() {
         viewModelScope.launch {
-            val groupsFlow = groupRepository.getAllGroups()
-            val lastGroupIdFlow = preferenceManager.lastGroupId
-            val currentUserFlow = userRepository.getCurrentUser().filterNotNull()
-            val categoriesFlow = categoryRepository.getAllCategories()
-            val usersFlow = userRepository.getAllUsers()
+            val groupsFlow = groupRepository.getAllGroups().distinctUntilChanged()
+            val lastGroupIdFlow = preferenceManager.lastGroupId.distinctUntilChanged()
+            val currentUserFlow = userRepository.getCurrentUser()
+                .filterNotNull()
+                .distinctUntilChanged { old, new -> 
+                    // Consider same if ID, name, email and FCM token match
+                    old.id == new.id && 
+                    old.name == new.name && 
+                    old.email == new.email && 
+                    old.fcmToken == new.fcmToken
+                }
+            val categoriesFlow = categoryRepository.getAllCategories().distinctUntilChanged()
+            val usersFlow = userRepository.getAllUsers().distinctUntilChanged()
 
             combine(
                 groupsFlow,
@@ -78,6 +88,9 @@ class HomeViewModel @Inject constructor(
                 BaseData(groups, selectedGroup, user, categories, allUsers)
             }.flatMapLatest { data ->
                 if (data.selectedGroup != null) {
+                    viewModelScope.launch {
+                        categoryRepository.syncCategoriesForGroup(data.selectedGroup.id)
+                    }
                     combine(
                         expenseRepository.getExpensesByGroup(data.selectedGroup.id),
                         flow { emit(currencyRepository.getExchangeRates(data.selectedGroup.mainCurrency)) }
@@ -152,6 +165,29 @@ class HomeViewModel @Inject constructor(
     fun deleteExpense(expense: com.example.expenseapp.domain.model.Expense) {
         viewModelScope.launch {
             expenseRepository.deleteExpense(expense)
+        }
+    }
+
+    fun refresh() {
+        val groupId = _uiState.value.selectedGroup?.id
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true) }
+            try {
+                // Sync everything relevant to the Home screen
+                userRepository.syncUserFromSupabase(force = true)
+                groupRepository.syncGroupsFromSupabase(force = true)
+                if (groupId != null) {
+                    expenseRepository.syncExpensesFromSupabase(groupId, force = true)
+                    groupRepository.syncGroupMembersFromSupabase(groupId)
+                    categoryRepository.syncCategoriesForGroup(groupId)
+                }
+            } catch (e: Exception) {
+                // We might want to show an error, but for pull-to-refresh
+                // usually silently failing or just stopping the spinner is fine
+                Log.e("HomeViewModel", "Refresh failed", e)
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 }

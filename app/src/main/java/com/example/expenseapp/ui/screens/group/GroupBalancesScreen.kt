@@ -1,5 +1,9 @@
 package com.example.expenseapp.ui.screens.group
 
+import androidx.compose.ui.draw.clip
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -136,6 +140,21 @@ fun TransferItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            if (transfer.fromUser.avatarUrl != null) {
+                AsyncImage(
+                    model = transfer.fromUser.avatarUrl,
+                    contentDescription = "Avatar",
+                    modifier = Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).padding(end = 8.dp),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp).padding(end = 8.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.transfer_summary, transfer.fromUser.name, transfer.toUser.name),
@@ -181,6 +200,21 @@ fun BalanceItem(userBalance: UserBalance, currencyCode: String) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            if (userBalance.user.avatarUrl != null) {
+                AsyncImage(
+                    model = userBalance.user.avatarUrl,
+                    contentDescription = "Avatar",
+                    modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).padding(end = 12.dp),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp).padding(end = 12.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = userBalance.user.name,

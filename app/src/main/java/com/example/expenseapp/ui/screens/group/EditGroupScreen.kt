@@ -1,5 +1,9 @@
 package com.example.expenseapp.ui.screens.group
 
+import androidx.compose.ui.draw.clip
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,7 +33,7 @@ fun EditGroupScreen(
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf("EUR") }
-    val currencies = listOf("EUR", "USD", "GBP", "JPY", "CAD", "AUD")
+    val currencies = listOf("EUR", "USD", "GBP", "JPY", "CAD", "AUD", "ARS")
 
     LaunchedEffect(uiState.group) {
         uiState.group?.let {
@@ -139,6 +143,30 @@ fun EditGroupScreen(
                         ListItem(
                             headlineContent = { Text(member.name.ifBlank { member.email }) },
                             supportingContent = { Text(member.email) },
+                            leadingContent = {
+                                if (member.avatarUrl != null) {
+                                    AsyncImage(
+                                        model = member.avatarUrl,
+                                        contentDescription = "Avatar",
+                                        modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Surface(
+                                        shape = androidx.compose.foundation.shape.CircleShape,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                Icons.Default.AccountCircle,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            },
                             trailingContent = {
                                 IconButton(onClick = { viewModel.removeMember(member.id) }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Remove")

@@ -1,5 +1,6 @@
 package com.example.expenseapp.data.repository
 
+import com.example.expenseapp.data.local.AppDatabase
 import com.example.expenseapp.data.local.dao.UserDao
 import com.example.expenseapp.data.repository.mapper.toDomain
 import com.example.expenseapp.data.repository.mapper.toEntity
@@ -26,6 +27,7 @@ import javax.inject.Singleton
 @Singleton
 class UserRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
+    private val appDatabase: AppDatabase,
     private val supabaseClient: SupabaseClient,
     private val sessionManager: SessionManager
 ) : UserRepository {
@@ -58,19 +60,16 @@ class UserRepositoryImpl @Inject constructor(
         userDao.insertUser(user.toEntity())
         
         // Push to Supabase users table
-        try {
-            supabaseClient.postgrest["users"].upsert(
-                RemoteUser(
-                    id = user.id,
-                    name = user.name,
-                    email = user.email,
-                    avatar_url = user.avatarUrl,
-                    main_currency = user.mainCurrency
-                )
+        supabaseClient.postgrest["users"].upsert(
+            RemoteUser(
+                id = user.id,
+                name = user.name,
+                email = user.email,
+                avatar_url = user.avatarUrl,
+                main_currency = user.mainCurrency,
+                fcm_token = user.fcmToken
             )
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        )
     }
 
     override suspend fun uploadAvatar(imageBytes: ByteArray): String {
@@ -87,14 +86,17 @@ class UserRepositoryImpl @Inject constructor(
     @Serializable
     private data class RemoteUser(
         val id: String,
-        val name: String,
-        val email: String,
+        val name: String? = null,
+        val email: String? = null,
         val avatar_url: String? = null,
-        val main_currency: String = "EUR",
+        val main_currency: String? = "EUR",
+        val fcm_token: String? = null,
         val created_at: String? = null
     )
 
-    override suspend fun syncUserFromSupabase(userId: String?): User? {
+    private val syncThrottler = mutableMapOf<String, Long>()
+
+    override suspend fun syncUserFromSupabase(userId: String?, force: Boolean): User? {
         val authUser = supabaseClient.auth.currentUserOrNull()
         val session = supabaseClient.auth.currentSessionOrNull()
         
@@ -104,21 +106,39 @@ class UserRepositoryImpl @Inject constructor(
             ?: sessionManager.getUserId() 
             ?: return null
         
+        val now = System.currentTimeMillis()
+        val lastSync = syncThrottler[finalUserId] ?: 0L
+        if (!force && now - lastSync < 5 * 60 * 1000) { // 5 minutes throttle
+            Log.d("UserRepository", "Throttling sync for user $finalUserId (last sync: ${now - lastSync}ms ago)")
+            // Still return local data if available
+            return userDao.getUserById(finalUserId)?.toDomain()
+        }
+        
+        Log.d("UserRepository", "Syncing user $finalUserId from Supabase...")
+        
         // 1. Try to fetch from Supabase 'users' or 'profiles' table
-        val remoteUser = try {
+        val remoteUser: RemoteUser? = try {
             // Try 'users' first
+            Log.d("UserRepository", "Attempting fetch from 'users' table...")
             val fromUsers = supabaseClient.postgrest["users"]
-                .select(Columns.list("id", "name", "email", "avatar_url", "main_currency", "created_at")) {
+                .select() {
                     filter { eq("id", finalUserId) }
                 }.decodeSingleOrNull<RemoteUser>()
             
-            if (fromUsers != null) fromUsers else {
+            val result = if (fromUsers != null) {
+                Log.d("UserRepository", "Found user in 'users' table: ${fromUsers.name}")
+                fromUsers
+            } else {
                 // Fallback to 'profiles' if 'users' is empty
+                Log.d("UserRepository", "User not found in 'users', trying 'profiles'...")
                 supabaseClient.postgrest["profiles"]
                     .select() {
                         filter { eq("id", finalUserId) }
                     }.decodeSingleOrNull<RemoteUser>()
             }
+            // Mark sync as successful, set the throttle time
+            syncThrottler[finalUserId] = now
+            result
         } catch (e: Exception) {
             Log.e("UserRepository", "Failed to fetch profile for $finalUserId", e)
             null
@@ -127,30 +147,47 @@ class UserRepositoryImpl @Inject constructor(
         val user = if (remoteUser != null) {
             User(
                 id = remoteUser.id,
-                name = remoteUser.name,
-                email = remoteUser.email,
+                name = remoteUser.name ?: "",
+                email = remoteUser.email ?: "",
                 avatarUrl = remoteUser.avatar_url,
-                mainCurrency = remoteUser.main_currency
+                mainCurrency = remoteUser.main_currency ?: "EUR",
+                fcmToken = remoteUser.fcm_token
             )
         } else {
-            // 2. Fallback to Auth metadata ONLY if we are syncing the current user
+            // 2. Fallback: Try Local DB first, then Auth metadata ONLY if we are syncing the current user
+            val localUser = userDao.getUserById(finalUserId)
             val isCurrentUser = (finalUserId == authUser?.id || finalUserId == session?.user?.id)
-            val metadata = if (isCurrentUser) (authUser?.userMetadata ?: session?.user?.userMetadata) else null
             
-            val name = metadata?.get("full_name")?.toString()?.removeSurrounding("\"") 
-                ?: metadata?.get("name")?.toString()?.removeSurrounding("\"")
-                ?: if (isCurrentUser) "" else "Unknown Member"
-            
-            val email = if (isCurrentUser) (authUser?.email ?: session?.user?.email ?: "") else ""
-            val avatarUrl = metadata?.get("avatar_url")?.toString()?.removeSurrounding("\"")
+            if (localUser != null && localUser.name.isNotBlank() && localUser.name != "Member") {
+                // Keep local data if it exists and has a non-generic name
+                localUser.toDomain()
+            } else {
+                val metadata = if (isCurrentUser) (authUser?.userMetadata ?: session?.user?.userMetadata) else null
+                
+                val nameFallback = if (isCurrentUser) "" else {
+                    val email = if (isCurrentUser) (authUser?.email ?: session?.user?.email ?: "") else (localUser?.email ?: "")
+                    if (email.isNotBlank()) email.substringBefore("@") else "Member"
+                }
 
-            User(
-                id = finalUserId,
-                name = name.ifBlank { if (isCurrentUser) "" else "Unknown Member" },
-                email = email,
-                avatarUrl = avatarUrl,
-                mainCurrency = "EUR"
-            )
+                val name = metadata?.get("full_name")?.toString()?.removeSurrounding("\"") 
+                    ?: metadata?.get("name")?.toString()?.removeSurrounding("\"")
+                    ?: localUser?.name?.takeIf { it.isNotBlank() && it != "Member" }
+                    ?: nameFallback
+                
+                val email = if (isCurrentUser) (authUser?.email ?: session?.user?.email ?: "") else (localUser?.email ?: "")
+                val avatarUrl = metadata?.get("avatar_url")?.toString()?.removeSurrounding("\"")
+
+                User(
+                    id = finalUserId,
+                    name = if (name.isBlank() || name == "Member") {
+                        val prefix = email.substringBefore("@")
+                        if (prefix.isNotBlank() && prefix != email) prefix else if (isCurrentUser) "" else "Member"
+                    } else name,
+                    email = email,
+                    avatarUrl = avatarUrl ?: localUser?.avatar_url,
+                    mainCurrency = localUser?.main_currency ?: "EUR"
+                )
+            }
         }
         
         // Ensure it's in local DB
@@ -158,7 +195,8 @@ class UserRepositoryImpl @Inject constructor(
         
         // 3. If this is the CURRENT USER, also ensure their profile is in Supabase 'users' table 
         // so others (their group teammates) can see them!
-        if (userId == null || userId == authUser?.id) {
+        // ONLY UPSERT if we actually have a name to show!
+        if ((userId == null || userId == authUser?.id) && user.name.isNotBlank()) {
             try {
                 supabaseClient.postgrest["users"].upsert(
                     RemoteUser(
@@ -166,7 +204,8 @@ class UserRepositoryImpl @Inject constructor(
                         name = user.name,
                         email = user.email,
                         avatar_url = user.avatarUrl,
-                        main_currency = user.mainCurrency
+                        main_currency = user.mainCurrency,
+                        fcm_token = user.fcmToken
                     )
                 )
             } catch (e: Exception) {
@@ -180,6 +219,27 @@ class UserRepositoryImpl @Inject constructor(
         return user
     }
     
+    override suspend fun updateFcmToken(token: String?) {
+    val authUser = supabaseClient.auth.currentUserOrNull()
+    val userId = authUser?.id ?: sessionManager.getUserId() ?: return
+    
+    Log.d("UserRepository", "Updating FCM token for userId: $userId")
+    val localUser = userDao.getUserById(userId)?.toDomain()
+    
+    val userToUpdate = if (localUser != null) {
+        localUser.copy(fcmToken = token)
+    } else {
+        // If not in local DB, create a minimal user to push to Supabase
+        User(
+            id = userId,
+            name = authUser?.userMetadata?.get("name")?.toString() ?: "New User",
+            email = authUser?.email ?: "",
+            fcmToken = token
+        )
+    }
+    updateProfile(userToUpdate)
+}
+
     override suspend fun signOut() {
         try {
             supabaseClient.auth.signOut()
@@ -187,6 +247,12 @@ class UserRepositoryImpl @Inject constructor(
             // Log or handle sign out error if necessary
         } finally {
             sessionManager.clearSession()
+            try {
+                appDatabase.clearAllTables()
+                Log.d("UserRepository", "Successfully cleared Room database on signOut")
+            } catch (e: Exception) {
+                Log.e("UserRepository", "Failed to clear Room database on signOut", e)
+            }
         }
     }
 }

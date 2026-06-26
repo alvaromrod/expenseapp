@@ -23,4 +23,10 @@ interface ExpenseDao {
 
     @Query("UPDATE expenses SET is_archived = 1 WHERE group_id = :groupId AND is_archived = 0")
     suspend fun archiveExpensesForGroup(groupId: String)
+
+    @Query("DELETE FROM expenses WHERE group_id = :groupId AND id NOT IN (:validIds)")
+    suspend fun deleteExpensesNotIn(groupId: String, validIds: List<String>)
+
+    @Query("DELETE FROM expenses WHERE group_id = :groupId")
+    suspend fun deleteExpensesByGroupId(groupId: String)
 }

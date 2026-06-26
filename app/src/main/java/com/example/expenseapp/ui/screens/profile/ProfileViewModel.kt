@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,7 +29,8 @@ data class ProfileUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val error: String? = null,
-    val currencies: List<String> = emptyList()
+    val currencies: List<String> = emptyList(),
+    val isPushEnabled: Boolean = false
 )
 
 @HiltViewModel
@@ -55,7 +57,11 @@ class ProfileViewModel @Inject constructor(
             userRepository.getCurrentUser().collectLatest { user ->
                 Log.d("ProfileViewModel", "Profile updated in VM: ${user?.email ?: "null"}")
                 _uiState.update { currentState: ProfileUiState -> 
-                    currentState.copy(user = user, isLoading = false) 
+                    currentState.copy(
+                        user = user, 
+                        isLoading = false,
+                        isPushEnabled = user?.fcmToken != null
+                    ) 
                 }
             }
         }
@@ -106,6 +112,36 @@ class ProfileViewModel @Inject constructor(
                     error = e.message ?: "Failed to sign out"
                 )
                 _events.emit(ProfileEvent.ShowError(e.message ?: "Failed to sign out"))
+            }
+        }
+    }
+
+    fun enableNotifications() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, error = null) }
+            try {
+                Log.d("ProfileViewModel", "Requesting FCM token...")
+                val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+                Log.d("ProfileViewModel", "FCM token received: ${token.take(10)}...")
+                userRepository.updateFcmToken(token)
+                _uiState.update { it.copy(isSaving = false) }
+            } catch (e: Exception) {
+                Log.e("ProfileViewModel", "Failed to enable notifications", e)
+                _uiState.update { it.copy(isSaving = false, error = "Failed to enable notifications: ${e.message}") }
+            }
+        }
+    }
+
+    fun disableNotifications() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, error = null) }
+            try {
+                Log.d("ProfileViewModel", "Disabling notifications...")
+                userRepository.updateFcmToken(null)
+                _uiState.update { it.copy(isSaving = false) }
+            } catch (e: Exception) {
+                Log.e("ProfileViewModel", "Failed to disable notifications", e)
+                _uiState.update { it.copy(isSaving = false, error = "Failed to disable notifications: ${e.message}") }
             }
         }
     }

@@ -1,7 +1,11 @@
 package com.example.expenseapp.ui.screens.expense
 
+import androidx.compose.ui.draw.clip
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.example.expenseapp.R
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -10,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.material.icons.filled.Check
@@ -58,14 +63,51 @@ fun AddExpenseScreen(
     val selectedPayerId by viewModel.selectedPayerId.collectAsState()
     val context = LocalContext.current
 
-    // Pre-fill description and amount in edit mode
+    // Pre-fill fields in edit mode
     val editDescription by viewModel.editDescription.collectAsState()
     val editAmount by viewModel.editAmount.collectAsState()
+    val editSplits by viewModel.editSplits.collectAsState()
+    
+    val selectedUserIds = remember { mutableStateListOf<String>() }
+    val customAmounts = remember { mutableStateMapOf<String, String>() }
+    var isCustomSplit by remember { mutableStateOf(false) }
+
     var hasPreFilled by remember { mutableStateOf(false) }
-    LaunchedEffect(editDescription, editAmount) {
-        if (!hasPreFilled && editDescription != null) {
+    LaunchedEffect(editDescription, editAmount, editSplits, users) {
+        if (!hasPreFilled && editDescription != null && users.isNotEmpty()) {
+            // WAIT until all participants from the database are found in our users list
+            // If they aren't all here yet, we might be mid-sync, so wait for the next emission.
+            val allParticipantsLoaded = editSplits.isEmpty() || 
+                editSplits.keys.all { splitUserId -> users.any { it.id == splitUserId } }
+            
+            if (editSplits.isNotEmpty() && !allParticipantsLoaded) {
+                // Not all participants are in the 'users' list yet, wait for next update.
+                return@LaunchedEffect
+            }
+
             description = editDescription ?: ""
             amountValue = editAmount ?: ""
+            
+            if (editSplits.isNotEmpty()) {
+                selectedUserIds.clear()
+                // Safely include participants
+                selectedUserIds.addAll(editSplits.keys.filter { userId -> users.any { it.id == userId } })
+                
+                customAmounts.clear()
+                editSplits.forEach { (userId, amount) ->
+                    customAmounts[userId] = String.format(Locale.US, "%.2f", amount)
+                }
+                
+                // Determine if it was custom split
+                val totalAmt = editAmount?.replace(',', '.')?.toDoubleOrNull() ?: 0.0
+                val equalShare = if (selectedUserIds.isNotEmpty()) totalAmt / selectedUserIds.size else 0.0
+                isCustomSplit = editSplits.values.any { Math.abs(it - equalShare) > 0.01 }
+            } else {
+                // NEW expense: default to everyone selected
+                selectedUserIds.clear()
+                selectedUserIds.addAll(users.map { it.id })
+            }
+            
             hasPreFilled = true
         }
     }
@@ -177,16 +219,16 @@ fun AddExpenseScreen(
                     Text(stringResource(R.string.manage))
                 }
             }
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 200.dp)
-                    .padding(bottom = 16.dp)
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                maxItemsInEachRow = Int.MAX_VALUE
             ) {
-                items(categories, key = { it.id }) { category ->
+                categories.forEach { category ->
                     CategoryChip(
                         category = category,
                         isSelected = selectedCategoryId == category.id,
@@ -328,6 +370,19 @@ fun AddExpenseScreen(
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )
+                                } else if (user.avatarUrl != null) {
+                                    AsyncImage(
+                                        model = user.avatarUrl,
+                                        contentDescription = "Avatar",
+                                        modifier = Modifier.size(24.dp).clip(androidx.compose.foundation.shape.CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.AccountCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
                             }
                         )
@@ -338,18 +393,6 @@ fun AddExpenseScreen(
             if (selectedGroupId != null) {
                 Text(stringResource(R.string.split_with), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
                 
-                val selectedUserIds = remember { mutableStateListOf<String>() }
-                val customAmounts = remember { mutableStateMapOf<String, String>() }
-                var isCustomSplit by remember { mutableStateOf(false) }
-
-                // Initialize selection: always ensure all users are selected
-                LaunchedEffect(users) {
-                    if (users.isNotEmpty()) {
-                        selectedUserIds.clear()
-                        selectedUserIds.addAll(users.map { it.id })
-                    }
-                }
-
                 // Toggle
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                     FilterChip(
@@ -362,7 +405,7 @@ fun AddExpenseScreen(
                         selected = isCustomSplit,
                         onClick = { 
                             isCustomSplit = true 
-                            val amount = amountValue.toDoubleOrNull() ?: 0.0
+                            val amount = amountValue.replace(',', '.').toDoubleOrNull() ?: 0.0
                             val equalShare = if (selectedUserIds.isNotEmpty()) amount / selectedUserIds.size else 0.0
                             val formattedShare = String.format(Locale.US, "%.2f", equalShare)
                             selectedUserIds.forEach { userId ->
@@ -375,8 +418,8 @@ fun AddExpenseScreen(
                     )
                 }
 
-                val totalAmount = amountValue.toDoubleOrNull() ?: 0.0
-                val currentCustomTotal = customAmounts.filterKeys { selectedUserIds.contains(it) }.values.sumOf { it.toDoubleOrNull() ?: 0.0 }
+                val totalAmount = amountValue.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val currentCustomTotal = customAmounts.filterKeys { selectedUserIds.contains(it) }.values.sumOf { it.replace(',', '.').toDoubleOrNull() ?: 0.0 }
                 val remaining = totalAmount - currentCustomTotal
 
                 if (isCustomSplit) {
@@ -405,6 +448,21 @@ fun AddExpenseScreen(
                                 }
                             }
                         )
+                        if (user.avatarUrl != null) {
+                            AsyncImage(
+                                model = user.avatarUrl,
+                                contentDescription = "Avatar",
+                                modifier = Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text(user.name, modifier = Modifier.padding(start = 8.dp).weight(1f))
                         
                         if (selectedUserIds.contains(user.id)) {
@@ -435,7 +493,7 @@ fun AddExpenseScreen(
                         val splitsMap = mutableMapOf<String, Double>()
                         if (isCustomSplit) {
                             selectedUserIds.forEach { userId ->
-                                splitsMap[userId] = customAmounts[userId]?.toDoubleOrNull() ?: 0.0
+                                splitsMap[userId] = customAmounts[userId]?.replace(',', '.')?.toDoubleOrNull() ?: 0.0
                             }
                         } else {
                             val equalShare = if (selectedUserIds.isNotEmpty()) totalAmount / selectedUserIds.size else 0.0

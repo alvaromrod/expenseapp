@@ -26,6 +26,7 @@ fun LoginScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     var email by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -76,8 +77,20 @@ fun LoginScreen(
                 label = { Text(stringResource(R.string.email)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                enabled = !uiState.isLoading
+                enabled = !uiState.isLoading,
+                singleLine = true
             )
+
+            if (isSignUpMode) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.whats_your_name)) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    enabled = !uiState.isLoading,
+                    singleLine = true
+                )
+            }
 
             OutlinedTextField(
                 value = password,
@@ -102,13 +115,13 @@ fun LoginScreen(
                 Button(
                     onClick = { 
                         if (isSignUpMode) {
-                            viewModel.signUpWithEmail(email, password)
+                            viewModel.signUpWithEmail(name, email, password)
                         } else {
                             viewModel.signInWithEmail(email, password)
                         }
                     },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    enabled = email.isNotBlank() && password.isNotBlank()
+                    enabled = email.isNotBlank() && password.isNotBlank() && (!isSignUpMode || name.isNotBlank())
                 ) {
                     Text(if (isSignUpMode) stringResource(R.string.sign_up) else stringResource(R.string.login))
                 }

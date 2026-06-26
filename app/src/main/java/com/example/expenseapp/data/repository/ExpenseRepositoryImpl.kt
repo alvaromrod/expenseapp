@@ -19,11 +19,14 @@ import com.example.expenseapp.data.local.entity.ExpenseEntity
 import com.example.expenseapp.data.local.entity.SplitEntity
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import io.github.jan.supabase.auth.auth
 
 @Singleton
 class ExpenseRepositoryImpl @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val splitDao: SplitDao,
+    private val userRepository: com.example.expenseapp.domain.repository.UserRepository,
     private val supabaseClient: SupabaseClient,
     private val externalScope: CoroutineScope
 ) : ExpenseRepository {
@@ -49,6 +52,12 @@ class ExpenseRepositoryImpl @Inject constructor(
         val amount: Double
     )
 
+    @Serializable
+    private data class RemoteUser(
+        val name: String? = null,
+        val fcm_token: String? = null
+    )
+
     override fun getAllExpenses(): Flow<List<Expense>> {
         return expenseDao.getAllExpenses().flatMapLatest { entities ->
             val expenseFlows = entities.map { entity ->
@@ -61,12 +70,17 @@ class ExpenseRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getExpenseIdsForUser(userId: String): Flow<Set<String>> {
+        return splitDao.getExpenseIdsForUser(userId).map { it.toSet() }
+    }
+
+
     override fun getExpensesByGroup(groupId: String): Flow<List<Expense>> {
         return expenseDao.getExpensesByGroup(groupId)
             .onStart {
                 // Background sync
                 externalScope.launch {
-                    syncExpensesFromSupabase(groupId)
+                    syncExpensesFromSupabase(groupId, force = false)
                 }
             }
             .flatMapLatest { entities ->
@@ -81,7 +95,9 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getExpenseById(id: String): Expense? {
-        return expenseDao.getExpenseById(id)?.toDomain()
+        val entity = expenseDao.getExpenseById(id) ?: return null
+        val splits = splitDao.getSplitsByExpense(id).first().map { it.toDomain() }
+        return entity.toDomain(splits)
     }
 
     override suspend fun upsertExpense(expense: Expense) {
@@ -127,11 +143,15 @@ class ExpenseRepositoryImpl @Inject constructor(
                     )
                 }
                 Log.d("ExpenseRepository", "Successfully synced expense ${expense.id} to Supabase")
+
+                // 3. Notification is now handled automatically by Supabase Edge Functions
+                // on the remote 'expenses' table INSERT trigger.
             } catch (e: Exception) {
                 Log.e("ExpenseRepository", "Failed to sync expense ${expense.id} to Supabase", e)
             }
         }
     }
+
 
     override suspend fun deleteExpense(expense: Expense) {
         // 1. Delete locally
@@ -164,11 +184,33 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     override suspend fun archiveExpenses(groupId: String) {
+        // 1. Update locally
         expenseDao.archiveExpensesForGroup(groupId)
-        // TODO: Push archive status to Supabase if needed
+        
+        // 2. Push archive status to Supabase
+        externalScope.launch {
+            try {
+                val data = mapOf("is_archived" to true)
+                supabaseClient.postgrest["expenses"].update(data) {
+                    filter { eq("group_id", groupId) }
+                }
+                Log.d("ExpenseRepository", "Archived expenses for group $groupId in Supabase")
+            } catch (e: Exception) {
+                Log.e("ExpenseRepository", "Failed to archive expenses in Supabase", e)
+            }
+        }
     }
 
-    override suspend fun syncExpensesFromSupabase(groupId: String) {
+    private val syncThrottler = mutableMapOf<String, Long>()
+
+    override suspend fun syncExpensesFromSupabase(groupId: String, force: Boolean) {
+        val now = System.currentTimeMillis()
+        val lastSync = syncThrottler[groupId] ?: 0L
+        if (!force && now - lastSync < 60 * 1000) { // 1 minute throttle
+            Log.d("ExpenseRepository", "Throttling expense sync for group $groupId (last sync: ${now - lastSync}ms ago)")
+            return
+        }
+
         try {
             Log.d("ExpenseRepository", "Triggering expense sync for group $groupId")
             val remoteExpenses = supabaseClient.postgrest["expenses"]
@@ -176,7 +218,10 @@ class ExpenseRepositoryImpl @Inject constructor(
                     filter { eq("group_id", groupId) }
                 }.decodeList<RemoteExpense>()
 
+            syncThrottler[groupId] = now
+
             Log.d("ExpenseRepository", "Found ${remoteExpenses.size} remote expenses")
+            val remoteIds = remoteExpenses.map { it.id }
 
             remoteExpenses.forEach { remote ->
                 val dateLong = try {
@@ -198,9 +243,17 @@ class ExpenseRepositoryImpl @Inject constructor(
                 )
                 expenseDao.insertExpense(entity)
 
+                // Proactively sync the payer's profile
+                userRepository.syncUserFromSupabase(remote.paid_by)
+
                 // Sync splits for each expense
                 syncSplitsForExpense(remote.id)
             }
+
+            // Reconciliation: Delete local expenses that are no longer on the server
+            expenseDao.deleteExpensesNotIn(groupId, remoteIds)
+            splitDao.deleteOrphanedSplits()
+            Log.d("ExpenseRepository", "Reconciled local database for group $groupId (Found ${remoteIds.size} remote IDs)")
         } catch (e: Exception) {
             Log.e("ExpenseRepository", "Expense sync failed", e)
         }
@@ -223,6 +276,11 @@ class ExpenseRepositoryImpl @Inject constructor(
                         amount_owed = remote.amount
                     )
                 })
+                
+                // Proactively sync profiles for all split participants
+                remoteSplits.forEach { remote ->
+                    userRepository.syncUserFromSupabase(remote.user_id)
+                }
             }
         } catch (e: Exception) {
             Log.e("ExpenseRepository", "Splits sync failed for $expenseId", e)

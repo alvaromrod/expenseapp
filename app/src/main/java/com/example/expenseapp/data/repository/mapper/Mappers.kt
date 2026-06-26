@@ -33,7 +33,8 @@ fun UserEntity.toDomain() = User(
     name = name,
     email = email,
     avatarUrl = avatar_url,
-    mainCurrency = main_currency
+    mainCurrency = main_currency,
+    fcmToken = fcm_token
 )
 
 fun User.toEntity() = UserEntity(
@@ -41,7 +42,8 @@ fun User.toEntity() = UserEntity(
     name = name,
     email = email,
     avatar_url = avatarUrl,
-    main_currency = mainCurrency
+    main_currency = mainCurrency,
+    fcm_token = fcmToken
 )
 
 fun GroupEntity.toDomain() = Group(

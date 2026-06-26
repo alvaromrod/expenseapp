@@ -13,13 +13,15 @@ interface GroupMemberDao {
     @Delete
     suspend fun deleteMember(member: GroupMemberEntity)
 
+    @SuppressWarnings(RoomWarnings.QUERY_MISMATCH)
     @Query("""
         SELECT 
             group_members.user_id as id, 
             COALESCE(users.name, '') as name, 
             COALESCE(users.email, '') as email, 
             users.avatar_url, 
-            COALESCE(users.main_currency, 'EUR') as main_currency 
+            COALESCE(users.main_currency, 'EUR') as main_currency,
+            users.fcm_token
         FROM group_members 
         LEFT JOIN users ON group_members.user_id = users.id 
         WHERE group_members.group_id = :groupId
@@ -34,4 +36,7 @@ interface GroupMemberDao {
 
     @Query("DELETE FROM group_members WHERE group_id = :groupId")
     suspend fun deleteMembersByGroupId(groupId: String)
+
+    @Query("DELETE FROM group_members WHERE group_id = :groupId AND user_id NOT IN (:validUserIds)")
+    suspend fun deleteMembersNotIn(groupId: String, validUserIds: List<String>)
 }

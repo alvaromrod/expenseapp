@@ -72,6 +72,8 @@ class AddExpenseViewModel @Inject constructor(
     val editDescription = _editDescription.asStateFlow()
     private val _editAmount = MutableStateFlow<String?>(null)
     val editAmount = _editAmount.asStateFlow()
+    private val _editSplits = MutableStateFlow<Map<String, Double>>(emptyMap())
+    val editSplits = _editSplits.asStateFlow()
 
     // Expense ID for edit mode (null = create mode)
     private val expenseId: String? = savedStateHandle["expenseId"]
@@ -119,6 +121,7 @@ class AddExpenseViewModel @Inject constructor(
                     _editDescription.value = it.description
                     _editAmount.value = if (it.amount > 0) it.amount.toString() else ""
                     _selectedPayerId.value = it.paidById
+                    _editSplits.value = it.splits.associate { split -> split.owedById to split.amountOwed }
                 }
             } else if (lastGroupId != null) {
                 _selectedGroupId.value = lastGroupId

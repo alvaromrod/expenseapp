@@ -9,5 +9,6 @@ data class UserEntity(
     val name: String,
     val email: String,
     val avatar_url: String? = null,
-    val main_currency: String = "EUR"
+    val main_currency: String = "EUR",
+    val fcm_token: String? = null
 )

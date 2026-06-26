@@ -86,7 +86,17 @@ class CategoryRepositoryImpl @Inject constructor(
         }
     }
 
+    private val syncThrottler = mutableMapOf<String, Long>()
+
     override suspend fun syncCategoriesForGroup(groupId: String) {
+        val now = System.currentTimeMillis()
+        val lastSync = syncThrottler[groupId] ?: 0L
+        if (now - lastSync < 60 * 1000) { // 1 min throttle
+            Log.d("CategoryRepository", "Throttling category sync for group $groupId")
+            return
+        }
+        syncThrottler[groupId] = now
+
         try {
             Log.d("CategoryRepository", "Triggering category sync for group $groupId")
             val remoteCategories = supabaseClient.postgrest["categories"]

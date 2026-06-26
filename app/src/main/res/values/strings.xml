@@ -108,11 +108,16 @@
     <string name="transfer_summary">%1$s pays %2$s</string>
     <string name="settle">Settle</string>
     <string name="all_settled_up">All settled up!</string>
+    <string name="archived_expenses">Archived Expenses</string>
+    <string name="show_archived">Show Archive</string>
+    <string name="show_active">Show Active</string>
+    <string name="no_archived_expenses">No archived expenses found.</string>
+    <string name="no_description">No description</string>
     
     <!-- Statistics Screen -->
     <string name="no_expenses_found">No expenses found for this selection.</string>
     <string name="breakdown_by_category">Breakdown by Category</string>
-    <string name="total_spent_normalized">Total Spent (Normalized to %1$s)</string>
+    <string name="total_spent_normalized">Total Spent</string>
     <string name="from">From</string>
     <string name="to">To</string>
     <string name="unknown">Unknown</string>
@@ -129,4 +134,18 @@
     <string name="cat_shopping">Shopping</string>
     <string name="cat_utilities">Utilities</string>
     <string name="cat_other">Other</string>
+    <string name="push_notifications">Push Notifications</string>
+    <string name="enable_notifications">Enable Notifications</string>
+    <string name="disable_notifications">Disable Notifications</string>
+    <string name="leave_group">Leave Group</string>
+    <string name="confirm_leave_group">Are you sure you want to leave this group?</string>
+    <string name="cannot_leave_group_debt">You cannot leave the group until all your debts are settled.</string>
+    <string name="delete_group_warning">This will permanently delete the group and all its expenses for everyone. Are you sure?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="only_me">Only me</string>
+    <string name="full_expenses">Full expenses</string>
+    <string name="stats_show_archived">Show archived</string>
+    <string name="stats_active_only">Active only</string>
+    <string name="monthly_spending_trend">Monthly Spending Trend</string>
 </resources>

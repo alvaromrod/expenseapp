@@ -108,11 +108,16 @@
     <string name="transfer_summary">%1$s paga a %2$s</string>
     <string name="settle">Saldar</string>
     <string name="all_settled_up">¡Todo al día!</string>
+    <string name="archived_expenses">Gastos Archivados</string>
+    <string name="show_archived">Ver Archivo</string>
+    <string name="show_active">Ver Activos</string>
+    <string name="no_archived_expenses">No se han encontrado gastos archivados.</string>
+    <string name="no_description">Sin descripción</string>
 
     <!-- Statistics Screen -->
     <string name="no_expenses_found">No se han encontrado gastos para esta selección.</string>
     <string name="breakdown_by_category">Desglose por Categoría</string>
-    <string name="total_spent_normalized">Total Gastado (Normalizado a %1$s)</string>
+    <string name="total_spent_normalized">Total Gastado</string>
     <string name="from">Desde</string>
     <string name="to">Hasta</string>
     <string name="unknown">Desconocido</string>
@@ -128,5 +133,18 @@
     <string name="cat_education">Educación</string>
     <string name="cat_shopping">Compras</string>
     <string name="cat_utilities">Suministros</string>
-    <string name="cat_other">Otros</string>
+    <string name="cat_other">Otro</string>
+    <string name="push_notifications">Notificaciones Push</string>
+    <string name="enable_notifications">Activar Notificaciones</string>
+    <string name="disable_notifications">Desactivar Notificaciones</string>
+    <string name="leave_group">Salir del Grupo</string>
+    <string name="confirm_leave_group">¿Estás seguro de que quieres salir de este grupo?</string>
+    <string name="cannot_leave_group_debt">No puedes salir del grupo hasta que todas tus deudas estén liquidadas.</string>
+    <string name="delete_group_warning">Esto eliminará permanentemente el grupo y todos sus gastos para todos. ¿Estás seguro?</string>
+    <string name="yes">Sí</string>
+    <string name="no">No</string>
+    <string name="only_me">Solo yo</string>
+    <string name="full_expenses">Gastos totales</string>
+    <string name="stats_show_archived">Mostrar archivados</string>
+    <string name="stats_active_only">Solo activos</string>
 </resources>

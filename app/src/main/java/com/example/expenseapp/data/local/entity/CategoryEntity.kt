@@ -11,3 +11,4 @@ data class CategoryEntity(
     val color_hex: String,
     val group_id: String? = null
 )
+// TODO: Create Supabase `categories` table and RLS policies for synchronization

@@ -23,7 +23,9 @@ val appSchema = Schema(
         columns = listOf(
             Column.text("name"),
             Column.text("email"),
-            Column.text("avatar_url")
+            Column.text("avatar_url"),
+            Column.text("main_currency"),
+            Column.text("fcm_token")
         )
     ),
     Table(

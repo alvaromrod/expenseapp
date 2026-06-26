@@ -20,4 +20,7 @@ interface GroupDao {
 
     @Delete
     suspend fun deleteGroup(group: GroupEntity)
+
+    @Query("DELETE FROM groups WHERE id NOT IN (:validIds)")
+    suspend fun deleteGroupsNotIn(validIds: List<String>)
 }

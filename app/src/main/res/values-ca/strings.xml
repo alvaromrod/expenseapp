@@ -95,11 +95,16 @@
     <string name="transfer_summary">%1$s paga a %2$s</string>
     <string name="settle">Saldar</string>
     <string name="all_settled_up">Tot al dia!</string>
+    <string name="archived_expenses">Despeses Arxivades</string>
+    <string name="show_archived">Veure Arxiu</string>
+    <string name="show_active">Veure Actives</string>
+    <string name="no_archived_expenses">No s\'han trobat despeses arxivades.</string>
+    <string name="no_description">Sense descripció</string>
 
     <!-- Statistics Screen -->
     <string name="no_expenses_found">No s\'han trobat despeses per a aquesta selecció.</string>
     <string name="breakdown_by_category">Desglossament per Categoria</string>
-    <string name="total_spent_normalized">Total Gastat (Normalitzat a %1$s)</string>
+    <string name="total_spent_normalized">Total Gastat</string>
     <string name="from">Des de</string>
     <string name="to">Fins a</string>
     <string name="unknown">Desconegut</string>
@@ -116,4 +121,17 @@
     <string name="cat_shopping">Compres</string>
     <string name="cat_utilities">Subministraments</string>
     <string name="cat_other">Altres</string>
+    <string name="push_notifications">Notificacions Push</string>
+    <string name="enable_notifications">Activar Notificacions</string>
+    <string name="disable_notifications">Desactivar Notificacions</string>
+    <string name="leave_group">Sortir del Grup</string>
+    <string name="confirm_leave_group">Estàs segur que vols sortir d\'aquest grup?</string>
+    <string name="cannot_leave_group_debt">No pots sortir del grup fins que tots els teus deutes estiguin liquidats.</string>
+    <string name="delete_group_warning">Això eliminarà permanentment el grup i totes les seves despeses per a tothom. Estàs segur?</string>
+    <string name="yes">Sí</string>
+    <string name="no">No</string>
+    <string name="only_me">Només jo</string>
+    <string name="full_expenses">Despeses totals</string>
+    <string name="stats_show_archived">Mostra arxivats</string>
+    <string name="stats_active_only">Només actius</string>
 </resources>

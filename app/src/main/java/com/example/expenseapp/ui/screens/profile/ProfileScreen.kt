@@ -28,8 +28,9 @@ import com.example.expenseapp.ui.navigation.Screen
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.res.stringResource
 import com.example.expenseapp.R
+import com.google.accompanist.permissions.isGranted
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, com.google.accompanist.permissions.ExperimentalPermissionsApi::class)
 @Composable
 fun ProfileScreen(
     navController: NavController,
@@ -55,9 +56,6 @@ fun ProfileScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        Log.d("ProfileScreen", "Screen launched")
-    }
 
     LaunchedEffect(viewModel.events) {
         viewModel.events.collectLatest { event ->
@@ -205,6 +203,49 @@ fun ProfileScreen(
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                     } else {
                         Text(stringResource(R.string.save_changes))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Text(
+                    text = stringResource(R.string.push_notifications),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                val permissionState = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    com.google.accompanist.permissions.rememberPermissionState(android.Manifest.permission.POST_NOTIFICATIONS)
+                } else null
+
+                if (uiState.isPushEnabled) {
+                    OutlinedButton(
+                        onClick = { viewModel.disableNotifications() },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        enabled = !uiState.isSaving && !uiState.isLoading
+                    ) {
+                        if (uiState.isSaving) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        } else {
+                            Text(stringResource(R.string.disable_notifications))
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            if (permissionState != null && !permissionState.status.isGranted) {
+                                permissionState.launchPermissionRequest()
+                            }
+                            viewModel.enableNotifications()
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        enabled = !uiState.isSaving && !uiState.isLoading
+                    ) {
+                        if (uiState.isSaving) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Text(stringResource(R.string.enable_notifications))
+                        }
                     }
                 }
 

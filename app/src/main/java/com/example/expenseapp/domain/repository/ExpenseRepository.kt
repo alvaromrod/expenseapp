@@ -7,10 +7,11 @@ import kotlinx.coroutines.flow.Flow
 interface ExpenseRepository {
     fun getAllExpenses(): Flow<List<Expense>>
     fun getExpensesByGroup(groupId: String): Flow<List<Expense>>
+    fun getExpenseIdsForUser(userId: String): Flow<Set<String>> // returns the set of expense IDs the user has a split on
     suspend fun getExpenseById(id: String): Expense?
     suspend fun upsertExpense(expense: Expense)
     suspend fun deleteExpense(expense: Expense)
     suspend fun getSplitsForExpense(expenseId: String): Flow<List<Split>>
     suspend fun archiveExpenses(groupId: String)
-    suspend fun syncExpensesFromSupabase(groupId: String)
+    suspend fun syncExpensesFromSupabase(groupId: String, force: Boolean = false)
 }

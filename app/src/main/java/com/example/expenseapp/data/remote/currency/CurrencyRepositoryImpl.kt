@@ -12,12 +12,12 @@ import javax.inject.Inject
 class CurrencyRepositoryImpl @Inject constructor() : CurrencyRepository {
 
     override suspend fun getExchangeRates(baseCurrency: String): Map<String, Double> = withContext(Dispatchers.IO) {
-        // Mock rates relative to EUR
         val ratesToEur = mapOf(
             "USD" to 1.08,
             "EUR" to 1.0,
             "GBP" to 0.86,
-            "JPY" to 162.0
+            "JPY" to 162.0,
+            "ARS" to 1100.0
         )
         
         val baseRateInEur = ratesToEur[baseCurrency] ?: 1.0
@@ -26,5 +26,5 @@ class CurrencyRepositoryImpl @Inject constructor() : CurrencyRepository {
         ratesToEur.mapValues { it.value / baseRateInEur }
     }
 
-    override fun getSupportedCurrencies(): List<String> = listOf("USD", "EUR", "GBP", "JPY")
+    override fun getSupportedCurrencies(): List<String> = listOf("USD", "EUR", "GBP", "JPY", "CAD", "AUD", "ARS")
 }
