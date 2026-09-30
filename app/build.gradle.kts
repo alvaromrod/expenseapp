@@ -66,6 +66,9 @@ android {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            installation {
+                enableBaselineProfile = false
+            }
         }
     }
     compileOptions {
@@ -111,6 +114,7 @@ dependencies {
     implementation(libs.supabase.postgrest)
     implementation(libs.supabase.auth)
     implementation(libs.supabase.storage)
+    implementation(libs.ktor.client.okhttp)
 
     implementation(libs.androidx.sqlite.bundled)
 
