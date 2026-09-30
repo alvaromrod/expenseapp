@@ -166,7 +166,9 @@ fun HomeScreen(
                         )
                     }
 
-                    val filteredExpenses = uiState.expenses.filter { it.isArchived == showArchived }
+                    val filteredExpenses = remember(uiState.expenses, showArchived) {
+                        uiState.expenses.filter { it.isArchived == showArchived }
+                    }
                     if (filteredExpenses.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
@@ -272,16 +274,19 @@ fun ExpenseItem(
     val displayName = if (categoryName != null) "$iconEmoji $categoryName" else expense.description
     
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()) }
-    val formattedDate = dateFormatter.format(expense.date)
+    val formattedDate = remember(expense.date) { dateFormatter.format(expense.date) }
+    val paidByLabel = stringResource(R.string.paid_by_label, paidByName)
     
-    val supportingText = buildString {
-        if (expense.description.isNotBlank() && categoryName != null) {
-            append(expense.description)
+    val supportingText = remember(expense.description, categoryName, formattedDate, paidByLabel) {
+        buildString {
+            if (expense.description.isNotBlank() && categoryName != null) {
+                append(expense.description)
+                append(" · ")
+            }
+            append(formattedDate)
             append(" · ")
+            append(paidByLabel)
         }
-        append(formattedDate)
-        append(" · ")
-        append(stringResource(R.string.paid_by_label, paidByName))
     }
 
     Surface(

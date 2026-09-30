@@ -42,21 +42,13 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun providePowerSyncDatabase(
-        @ApplicationContext context: Context,
-        credentialsProvider: SupabaseCredentialsProvider
+        @ApplicationContext context: Context
     ): PowerSyncDatabase {
-        val db = PowerSyncDatabase(
+        return PowerSyncDatabase(
             factory = DatabaseDriverFactory(context),
             schema = appSchema,
             dbFilename = "powersync.db"
         )
-
-        // Start synchronization asynchronously
-        CoroutineScope(Dispatchers.IO).launch {
-            db.connect(credentialsProvider)
-        }
-
-        return db
     }
 
     @Provides
