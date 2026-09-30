@@ -18,6 +18,9 @@ interface SplitDao {
     @Query("DELETE FROM splits WHERE expense_id = :expenseId")
     suspend fun deleteSplitsForExpense(expenseId: String)
 
+    @Query("DELETE FROM splits WHERE expense_id IN (:expenseIds)")
+    suspend fun deleteSplitsForExpenseIds(expenseIds: List<String>)
+
     @Query("DELETE FROM splits WHERE expense_id NOT IN (SELECT id FROM expenses)")
     suspend fun deleteOrphanedSplits()
 }
