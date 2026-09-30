@@ -16,7 +16,6 @@ import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.flow.Flow
 import android.util.Log
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -33,19 +32,28 @@ class UserRepositoryImpl @Inject constructor(
     private val sessionManager: SessionManager
 ) : UserRepository {
 
+    /**
+     * Returns the current user immediately from local Room DB using the userId stored in DataStore.
+     * Does NOT wait for Supabase Auth network validation (which can take 15-20s on restrictive
+     * networks like GrapheneOS with strict TLS). The Supabase session is only used as a fallback
+     * if DataStore has no userId (e.g. first launch / logged out).
+     */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    override fun getCurrentUser(): Flow<User?> = combine(
-        sessionManager.currentUserFlow,
-        supabaseClient.auth.sessionStatus
-    ) { prefUserId, status ->
-        prefUserId ?: (status as? SessionStatus.Authenticated)?.session?.user?.id ?: sessionManager.currentUserId
-    }
+    override fun getCurrentUser(): Flow<User?> = sessionManager.currentUserFlow
         .distinctUntilChanged()
-        .flatMapLatest { userId: String? ->
-            if (userId != null) {
-                userDao.getUserByIdFlow(userId).map { it?.toDomain() }
+        .flatMapLatest { prefUserId: String? ->
+            if (prefUserId != null) {
+                // Fast path: userId already in DataStore → query Room directly, no network needed
+                userDao.getUserByIdFlow(prefUserId).map { it?.toDomain() }
             } else {
-                flowOf(null)
+                // Slow path: no saved session, wait for Supabase Auth to authenticate
+                supabaseClient.auth.sessionStatus
+                    .map { status -> (status as? SessionStatus.Authenticated)?.session?.user?.id }
+                    .distinctUntilChanged()
+                    .flatMapLatest { userId ->
+                        if (userId != null) userDao.getUserByIdFlow(userId).map { it?.toDomain() }
+                        else flowOf(null)
+                    }
             }
         }
 
