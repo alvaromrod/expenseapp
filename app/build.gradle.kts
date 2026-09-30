@@ -81,7 +81,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
         jniLibs {
-            useLegacyPackaging = false
+            useLegacyPackaging = true
         }
     }
 }
@@ -112,9 +112,6 @@ dependencies {
     implementation(libs.supabase.auth)
     implementation(libs.supabase.storage)
 
-    // PowerSync
-    implementation(libs.powersync.kotlin)
-    implementation(libs.powersync.room)
     implementation(libs.androidx.sqlite.bundled)
 
     // Coil

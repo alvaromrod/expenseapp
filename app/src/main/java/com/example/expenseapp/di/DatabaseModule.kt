@@ -4,12 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.example.expenseapp.data.local.AppDatabase
-import com.example.expenseapp.data.local.appSchema
 import com.example.expenseapp.data.local.dao.*
 import com.example.expenseapp.data.local.entity.CategoryEntity
-import com.example.expenseapp.data.remote.powersync.SupabaseCredentialsProvider
-import com.powersync.DatabaseDriverFactory
-import com.powersync.PowerSyncDatabase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -39,17 +35,6 @@ object DatabaseModule {
         CategoryEntity(id = "other", name = "Other", icon_name = "more_horiz", color_hex = "#95A5A6")
     )
 
-    @Provides
-    @Singleton
-    fun providePowerSyncDatabase(
-        @ApplicationContext context: Context
-    ): PowerSyncDatabase {
-        return PowerSyncDatabase(
-            factory = DatabaseDriverFactory(context),
-            schema = appSchema,
-            dbFilename = "powersync.db"
-        )
-    }
 
     @Provides
     @Singleton

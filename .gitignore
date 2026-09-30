@@ -50,3 +50,6 @@ Thumbs.db
 
 # Other
 deps.txt
+
+# Firebase Admin SDK service account key (contains secrets - never commit)
+app/*-firebase-adminsdk-*.json

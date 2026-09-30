@@ -1,0 +1,4 @@
+project_id = "lyqbtcuofolrcomngxwg"
+
+[functions.notify-expense]
+verify_jwt = false

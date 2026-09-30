@@ -1,0 +1,64 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="27"
+        android:translateY="27"
+        android:scaleX="0.5"
+        android:scaleY="0.5">
+        
+        <!-- Piggy Bank silhouette with White Fill and Thick Black Lines -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:strokeWidth="18"
+            android:strokeColor="#000000"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M15,25h78c8,0 15,7 15,15v35c0,8 -7,15 -15,15h-78c-8,0 -15,-7 -15,-15v-35c0,-8 7,-15 15,-15z" />
+            
+        <path
+            android:fillColor="#FFFFFF"
+            android:strokeWidth="18"
+            android:strokeColor="#000000"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M30,25l-8-12h16z M78,25l8-12h-16z" />
+            
+        <path
+            android:strokeWidth="18"
+            android:strokeColor="#000000"
+            android:strokeLineCap="round"
+            android:pathData="M35,90v12 M73,90v12" />
+            
+        <path
+            android:fillColor="#FFFFFF"
+            android:strokeWidth="18"
+            android:strokeColor="#000000"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M0,45h15v20h-15z" />
+            
+        <!-- Eye -->
+        <path
+            android:fillColor="#000000"
+            android:pathData="M80,45m-4,0a4,4 0 1,0 8,0a4,4 0 1,0 -8,0" />
+            
+        <!-- Coin -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:strokeWidth="18"
+            android:strokeColor="#000000"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M54,5m-10,0a10,10 0 1,0 20,0a10,10 0 1,0 -20,0" />
+            
+        <!-- Tail -->
+        <path
+            android:strokeWidth="14"
+            android:strokeColor="#000000"
+            android:strokeLineCap="round"
+            android:pathData="M100,45c8,0 14,6 14,14" />
+    </group>
+</vector>
