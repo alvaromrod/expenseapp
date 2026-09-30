@@ -59,13 +59,11 @@ class HomeViewModel @Inject constructor(
             val groupsFlow = groupRepository.getAllGroups().distinctUntilChanged()
             val lastGroupIdFlow = preferenceManager.lastGroupId.distinctUntilChanged()
             val currentUserFlow = userRepository.getCurrentUser()
-                .filterNotNull()
                 .distinctUntilChanged { old, new -> 
-                    // Consider same if ID, name, email and FCM token match
-                    old.id == new.id && 
-                    old.name == new.name && 
-                    old.email == new.email && 
-                    old.fcmToken == new.fcmToken
+                    old?.id == new?.id && 
+                    old?.name == new?.name && 
+                    old?.email == new?.email && 
+                    old?.fcmToken == new?.fcmToken
                 }
             val categoriesFlow = categoryRepository.getAllCategories().distinctUntilChanged()
             val usersFlow = userRepository.getAllUsers().distinctUntilChanged()
@@ -95,11 +93,12 @@ class HomeViewModel @Inject constructor(
                         expenseRepository.getExpensesByGroup(data.selectedGroup.id),
                         flow { emit(currencyRepository.getExchangeRates(data.selectedGroup.mainCurrency)) }
                     ) { expenses, rates ->
+                        val effectiveUserId = data.currentUser?.id ?: preferenceManager.userId.firstOrNull()
                         HomeUiState(
                             expenses = expenses,
                             groups = data.groups,
                             selectedGroup = data.selectedGroup,
-                            totalBalance = calculateTotalBalance(expenses, data.currentUser?.id, rates),
+                            totalBalance = calculateTotalBalance(expenses, effectiveUserId, rates),
                             isLoading = false,
                             categoryMap = data.categories.associateBy { it.id },
                             userMap = data.users.associateBy { it.id }

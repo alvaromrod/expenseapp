@@ -16,6 +16,7 @@ import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.flow.Flow
 import android.util.Log
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -33,10 +34,12 @@ class UserRepositoryImpl @Inject constructor(
 ) : UserRepository {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    override fun getCurrentUser(): Flow<User?> = supabaseClient.auth.sessionStatus
-        .map { status -> 
-            (status as? SessionStatus.Authenticated)?.session?.user?.id ?: sessionManager.currentUserId 
-        }
+    override fun getCurrentUser(): Flow<User?> = combine(
+        sessionManager.currentUserFlow,
+        supabaseClient.auth.sessionStatus
+    ) { prefUserId, status ->
+        prefUserId ?: (status as? SessionStatus.Authenticated)?.session?.user?.id ?: sessionManager.currentUserId
+    }
         .distinctUntilChanged()
         .flatMapLatest { userId: String? ->
             if (userId != null) {
