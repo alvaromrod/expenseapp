@@ -37,28 +37,23 @@ fun AppNavigation() {
     val authViewModel: AuthViewModel = hiltViewModel()
     val sessionStatus by authViewModel.currentUserId.collectAsState(initial = "unknown")
 
+    if (sessionStatus == "unknown") {
+        // Transient splash while reading stored session from local DataStore (~5ms)
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    val startDestination = if (sessionStatus != null) Screen.Home.route else Screen.Auth.route
+
     NavHost(
         navController = navController,
-        startDestination = Screen.Splash.route
+        startDestination = startDestination
     ) {
-        composable(Screen.Splash.route) {
-            // Splash/Loading screen while determining session
-            LaunchedEffect(sessionStatus) {
-                if (sessionStatus != "unknown") {
-                    val target = if (sessionStatus != null) Screen.Home.route else Screen.Auth.route
-                    navController.navigate(target) {
-                        popUpTo(Screen.Splash.route) { inclusive = true }
-                    }
-                }
-            }
-            // Simple blank/loading center content for the splash
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        }
         composable(Screen.Auth.route) {
             LoginScreen(navController = navController)
         }

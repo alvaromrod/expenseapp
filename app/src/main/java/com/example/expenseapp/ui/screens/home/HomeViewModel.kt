@@ -89,8 +89,23 @@ class HomeViewModel @Inject constructor(
                     viewModelScope.launch {
                         categoryRepository.syncCategoriesForGroup(data.selectedGroup.id)
                     }
+                    val expensesFlow = expenseRepository.getExpensesByGroup(data.selectedGroup.id)
+                        .distinctUntilChanged { old, new ->
+                            if (old.size != new.size) return@distinctUntilChanged false
+                            for (i in old.indices) {
+                                val o = old[i]
+                                val n = new[i]
+                                if (o.id != n.id || o.amount != n.amount || o.description != n.description ||
+                                    o.date != n.date || o.currency != n.currency || o.paidById != n.paidById ||
+                                    o.categoryId != n.categoryId || o.isArchived != n.isArchived || o.splits != n.splits) {
+                                    return@distinctUntilChanged false
+                                }
+                            }
+                            true
+                        }
+
                     combine(
-                        expenseRepository.getExpensesByGroup(data.selectedGroup.id),
+                        expensesFlow,
                         flow { emit(currencyRepository.getExchangeRates(data.selectedGroup.mainCurrency)) }
                     ) { expenses, rates ->
                         val effectiveUserId = data.currentUser?.id ?: preferenceManager.userId.firstOrNull()
@@ -118,7 +133,14 @@ class HomeViewModel @Inject constructor(
                     )
                 }
             }
-            .debounce(150)
+            .distinctUntilChanged { old, new ->
+                old.isLoading == new.isLoading &&
+                old.selectedGroup?.id == new.selectedGroup?.id &&
+                old.totalBalance == new.totalBalance &&
+                old.expenses.size == new.expenses.size &&
+                old.groups.size == new.groups.size &&
+                old.isRefreshing == new.isRefreshing
+            }
             .collect { state ->
                 // Loading Lock: If we have already successfully loaded data, do not revert to a loading or empty state 
                 // just because a background sync temporarily cleared a table.
