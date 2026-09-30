@@ -9,6 +9,7 @@ out/
 app/build/
 build/
 */build/
+app/release/
 
 # Gradle files
 .gradle/
