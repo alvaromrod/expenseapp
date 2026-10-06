@@ -10,23 +10,20 @@ class SessionManager @Inject constructor(
     private val preferenceManager: PreferenceManager
 ) {
     val currentUserFlow: Flow<String?> = preferenceManager.userId
-    
-    var currentUserId: String? = null // Temporary keep for compatibility if needed, but ideally move to Flow
 
     suspend fun saveSession(userId: String) {
-        currentUserId = userId
         preferenceManager.saveUserId(userId)
     }
 
+    /**
+     * Always reads directly from DataStore to avoid stale in-memory state,
+     * which could cause the wrong user to be shown after re-login or sign-out.
+     */
     suspend fun getUserId(): String? {
-        if (currentUserId != null) return currentUserId
-        val userId = currentUserFlow.firstOrNull()
-        currentUserId = userId
-        return userId
+        return currentUserFlow.firstOrNull()
     }
 
     suspend fun clearSession() {
-        currentUserId = null
         preferenceManager.clear()
     }
 }

@@ -224,8 +224,14 @@ class UserRepositoryImpl @Inject constructor(
             }
         }
         
-        // Persist session if we just found it
-        sessionManager.saveSession(finalUserId)
+        // Only persist the session when syncing the current authenticated user.
+        // If a specific userId was passed (e.g. syncing a group member's profile),
+        // we must NOT overwrite the session — that would log the current user out
+        // and log them in as their teammate, causing the wrong-user-in-profile bug.
+        val isCurrentUserSync = (userId == null || userId == authUser?.id || userId == session?.user?.id)
+        if (isCurrentUserSync) {
+            sessionManager.saveSession(finalUserId)
+        }
         
         return user
     }

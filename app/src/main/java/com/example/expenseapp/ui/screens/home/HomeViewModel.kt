@@ -109,11 +109,20 @@ class HomeViewModel @Inject constructor(
                         flow { emit(currencyRepository.getExchangeRates(data.selectedGroup.mainCurrency)) }
                     ) { expenses, rates ->
                         val effectiveUserId = data.currentUser?.id ?: preferenceManager.userId.firstOrNull()
+                        val activeExpenses = expenses.filter { !it.isArchived }
+
+                        // Guard: if any non-trivial active expense has zero splits,
+                        // Room emitted a partial update mid-sync. Use a sentinel to keep the old balance.
+                        val isMidSync = activeExpenses.any { it.amount > 0.01 && it.splits.isEmpty() }
+
                         HomeUiState(
                             expenses = expenses,
                             groups = data.groups,
                             selectedGroup = data.selectedGroup,
-                            totalBalance = calculateTotalBalance(expenses, effectiveUserId, rates),
+                            // Keep the current balance during a mid-sync transient state.
+                            // The caller will detect isMidSync=true and not override the existing balance.
+                            totalBalance = if (isMidSync) Double.NaN
+                                          else calculateTotalBalance(expenses, effectiveUserId, rates),
                             isLoading = false,
                             categoryMap = data.categories.associateBy { it.id },
                             userMap = data.users.associateBy { it.id }
@@ -147,6 +156,11 @@ class HomeViewModel @Inject constructor(
                 val currState = _uiState.value
                 if (!currState.isLoading && state.groups.isEmpty() && currState.groups.isNotEmpty()) {
                     // Ignore transient empty states if we already had data
+                    return@collect
+                }
+                // Mid-sync guard: don't override a valid balance with NaN (mid-sync transient)
+                if (state.totalBalance.isNaN()) {
+                    _uiState.value = state.copy(totalBalance = currState.totalBalance)
                     return@collect
                 }
                 _uiState.value = state

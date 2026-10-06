@@ -65,8 +65,18 @@ class GroupBalancesViewModel @Inject constructor(
                     return@combine GroupBalancesUiState(isLoading = true)
                 }
 
-                val rates = currencyRepository.getExchangeRates(group.mainCurrency)
+                // Guard: if any non-trivial non-archived expense has zero splits it means
+                // Room emitted a partial update mid-sync (expenses written, splits not yet).
+                // Skip this emission to avoid showing a temporarily wrong balance.
                 val activeExpenses = expenses.filter { !it.isArchived }
+                val hasSplitlessPaidExpense = activeExpenses.any { expense ->
+                    expense.amount > 0.01 && expense.splits.isEmpty()
+                }
+                if (hasSplitlessPaidExpense) {
+                    return@combine GroupBalancesUiState(isLoading = true)
+                }
+
+                val rates = currencyRepository.getExchangeRates(group.mainCurrency)
                 
                 val balances = members.map { member ->
                     var balance = 0.0
@@ -92,11 +102,13 @@ class GroupBalancesViewModel @Inject constructor(
                     isLoading = false
                 )
             }
-            .debounce(150)
+            // Increased from 150ms to 400ms: allows the SQLite @Transaction
+            // (which writes expenses then splits) to fully commit before recalculating.
+            .debounce(400)
             .collect { state ->
                 val currState = _uiState.value
                 if (!currState.isLoading && state.isLoading) {
-                    // Lock: don't revert to loading if we already have data
+                    // Lock: don't revert to loading if we already have correct data
                     return@collect
                 }
                 _uiState.value = state
