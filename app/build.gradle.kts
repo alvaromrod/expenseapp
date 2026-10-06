@@ -35,8 +35,8 @@ android {
         applicationId = "com.example.expenseapp"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 7
+        versionName = "1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -162,4 +162,7 @@ dependencies {
     implementation(libs.vico.compose)
     implementation(libs.vico.compose.m3)
     implementation(libs.vico.core)
+
+    // WorkManager for background offline sync
+    implementation(libs.androidx.work.runtime.ktx)
 }

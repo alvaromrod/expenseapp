@@ -39,7 +39,14 @@ interface ExpenseDao {
     @Query("UPDATE expenses SET is_archived = 1 WHERE group_id = :groupId AND is_archived = 0")
     suspend fun archiveExpensesForGroup(groupId: String)
 
-    @Query("DELETE FROM expenses WHERE group_id = :groupId AND id NOT IN (:validIds)")
+    @Query("""
+        DELETE FROM expenses 
+        WHERE group_id = :groupId 
+          AND id NOT IN (:validIds) 
+          AND id NOT IN (
+              SELECT entity_id FROM sync_queue WHERE entity_type = 'EXPENSE' AND action = 'UPSERT'
+          )
+    """)
     suspend fun deleteExpensesNotIn(groupId: String, validIds: List<String>)
 
     @Query("DELETE FROM expenses WHERE group_id = :groupId")
@@ -51,15 +58,22 @@ interface ExpenseDao {
         splits: List<com.example.expenseapp.data.local.entity.SplitEntity>,
         groupId: String,
         remoteExpenseIds: List<String>,
+        pendingDeletedExpenseIds: Set<String> = emptySet(),
         splitDao: SplitDao
     ) {
-        insertExpenses(expenses)
+        // Do not re-insert expenses that the user has deleted locally offline
+        val filteredExpenses = if (pendingDeletedExpenseIds.isEmpty()) expenses
+            else expenses.filter { it.id !in pendingDeletedExpenseIds }
+        val filteredSplits = if (pendingDeletedExpenseIds.isEmpty()) splits
+            else splits.filter { it.expense_id !in pendingDeletedExpenseIds }
+
+        insertExpenses(filteredExpenses)
         if (remoteExpenseIds.isNotEmpty()) {
             remoteExpenseIds.chunked(100).forEach { chunk ->
                 splitDao.deleteSplitsForExpenseIds(chunk)
             }
         }
-        splitDao.insertSplits(splits)
+        splitDao.insertSplits(filteredSplits)
         deleteExpensesNotIn(groupId, remoteExpenseIds)
         splitDao.deleteOrphanedSplits()
     }

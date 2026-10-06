@@ -15,6 +15,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.example.expenseapp.core.sync.SyncManager
 
 data class HomeUiState(
     val expenses: List<Expense> = emptyList(),
@@ -35,7 +36,8 @@ class HomeViewModel @Inject constructor(
     private val groupRepository: com.example.expenseapp.domain.repository.GroupRepository,
     private val currencyRepository: com.example.expenseapp.domain.repository.currency.CurrencyRepository,
     private val preferenceManager: com.example.expenseapp.core.session.PreferenceManager,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val syncManager: SyncManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
@@ -43,6 +45,9 @@ class HomeViewModel @Inject constructor(
 
     init {
         loadData()
+        viewModelScope.launch {
+            syncManager.syncPendingItems()
+        }
     }
 
     private data class CombinedData(
@@ -208,6 +213,9 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true) }
             try {
+                // First push any pending offline changes
+                syncManager.syncPendingItems()
+
                 // Sync everything relevant to the Home screen
                 userRepository.syncUserFromSupabase(force = true)
                 groupRepository.syncGroupsFromSupabase(force = true)

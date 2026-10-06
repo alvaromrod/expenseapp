@@ -17,9 +17,10 @@ import com.example.expenseapp.data.local.dao.*
         GroupEntity::class,
         SplitEntity::class,
         CategoryEntity::class,
-        GroupMemberEntity::class
+        GroupMemberEntity::class,
+        com.example.expenseapp.data.local.entity.SyncQueueEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -29,4 +30,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun splitDao(): SplitDao
     abstract fun categoryDao(): CategoryDao
     abstract fun groupMemberDao(): GroupMemberDao
+    abstract fun syncQueueDao(): SyncQueueDao
 }

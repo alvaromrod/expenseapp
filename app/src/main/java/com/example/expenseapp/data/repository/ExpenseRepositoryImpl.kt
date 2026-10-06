@@ -17,6 +17,9 @@ import kotlinx.serialization.Serializable
 import android.util.Log
 import com.example.expenseapp.data.local.entity.ExpenseEntity
 import com.example.expenseapp.data.local.entity.SplitEntity
+import com.example.expenseapp.data.local.dao.SyncQueueDao
+import com.example.expenseapp.data.local.entity.SyncQueueEntity
+import com.example.expenseapp.core.sync.SyncManager
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +29,8 @@ import io.github.jan.supabase.auth.auth
 class ExpenseRepositoryImpl @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val splitDao: SplitDao,
+    private val syncQueueDao: SyncQueueDao,
+    private val syncManager: SyncManager,
     private val userRepository: com.example.expenseapp.domain.repository.UserRepository,
     private val supabaseClient: SupabaseClient,
     private val externalScope: CoroutineScope
@@ -87,12 +92,23 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     override suspend fun upsertExpense(expense: Expense) {
-        // 1. Save locally
+        // 1. Save locally in Room immediately (UI displays it instantly)
         expenseDao.insertExpense(expense.toEntity())
         splitDao.deleteSplitsForExpense(expense.id)
         splitDao.insertSplits(expense.splits.map { it.toEntity() })
 
-        // 2. Push to Supabase
+        // 2. Enqueue in offline sync queue to protect against deletion during reconciliation
+        // and guarantee push to Supabase even if the app closes or network fails.
+        syncQueueDao.deleteByEntity("EXPENSE", expense.id)
+        syncQueueDao.enqueue(
+            SyncQueueEntity(
+                entity_type = "EXPENSE",
+                entity_id = expense.id,
+                action = "UPSERT"
+            )
+        )
+
+        // 3. Attempt immediate push to Supabase
         externalScope.launch {
             try {
                 // Push Expense
@@ -110,7 +126,7 @@ class ExpenseRepositoryImpl @Inject constructor(
                     )
                 )
 
-                // Push Splits (Delete old, Insert new)
+                // Push Splits
                 supabaseClient.postgrest["splits"].delete {
                     filter { eq("expense_id", expense.id) }
                 }
@@ -127,19 +143,39 @@ class ExpenseRepositoryImpl @Inject constructor(
                         }
                     )
                 }
+                // Succeeded: remove from sync queue
+                syncQueueDao.deleteByEntity("EXPENSE", expense.id)
                 Log.d("ExpenseRepository", "Successfully synced expense ${expense.id} to Supabase")
             } catch (e: Exception) {
-                Log.e("ExpenseRepository", "Failed to sync expense ${expense.id} to Supabase", e)
+                Log.w("ExpenseRepository", "Device is offline or push failed for expense ${expense.id}; queued for background sync.", e)
+                syncManager.scheduleBackgroundSync()
             }
         }
     }
 
     override suspend fun deleteExpense(expense: Expense) {
-        // 1. Delete locally
+        // 1. Delete locally from Room
         splitDao.deleteSplitsForExpense(expense.id)
         expenseDao.deleteExpense(expense.toEntity())
 
-        // 2. Delete from Supabase
+        // 2. Update sync queue:
+        // If there was a pending UPSERT for this expense (created offline, never reached Supabase),
+        // we simply cancel the UPSERT. Otherwise, enqueue a DELETE action.
+        val pendingUpsertIds = syncQueueDao.getPendingEntityIds("EXPENSE", "UPSERT")
+        if (expense.id in pendingUpsertIds) {
+            syncQueueDao.deleteByEntity("EXPENSE", expense.id)
+            Log.d("ExpenseRepository", "Canceled pending offline upsert for deleted expense ${expense.id}")
+        } else {
+            syncQueueDao.enqueue(
+                SyncQueueEntity(
+                    entity_type = "EXPENSE",
+                    entity_id = expense.id,
+                    action = "DELETE"
+                )
+            )
+        }
+
+        // 3. Attempt immediate remote deletion
         externalScope.launch {
             try {
                 supabaseClient.postgrest["splits"].delete {
@@ -148,9 +184,11 @@ class ExpenseRepositoryImpl @Inject constructor(
                 supabaseClient.postgrest["expenses"].delete {
                     filter { eq("id", expense.id) }
                 }
+                syncQueueDao.deleteByEntity("EXPENSE", expense.id)
                 Log.d("ExpenseRepository", "Deleted expense ${expense.id} and its splits from Supabase")
             } catch (e: Exception) {
-                Log.e("ExpenseRepository", "Failed to delete expense from Supabase", e)
+                Log.w("ExpenseRepository", "Offline: remote deletion for expense ${expense.id} queued for background sync.", e)
+                syncManager.scheduleBackgroundSync()
             }
         }
     }
@@ -190,6 +228,9 @@ class ExpenseRepositoryImpl @Inject constructor(
         }
 
         try {
+            // First, push any pending offline changes to Supabase before pulling down
+            syncManager.syncPendingItems()
+
             Log.d("ExpenseRepository", "Triggering batch expense sync for group $groupId")
             val remoteExpenses = supabaseClient.postgrest["expenses"]
                 .select(Columns.list("id", "group_id", "name", "amount", "currency", "date", "paid_by", "category_id", "is_archived")) {
@@ -245,12 +286,16 @@ class ExpenseRepositoryImpl @Inject constructor(
                 )
             }
 
+            // Expenses that were deleted locally while offline should NOT be re-created from remote
+            val pendingDeletedIds = syncQueueDao.getPendingEntityIds("EXPENSE", "DELETE").toSet()
+
             // Atomic batch update via DAO transaction (compatible with SQLiteDriver & KMP)
             expenseDao.syncBatchExpensesAndSplits(
                 expenses = expenseEntities,
                 splits = splitEntities,
                 groupId = groupId,
                 remoteExpenseIds = remoteIds,
+                pendingDeletedExpenseIds = pendingDeletedIds,
                 splitDao = splitDao
             )
             Log.d("ExpenseRepository", "Successfully batch synced ${expenseEntities.size} expenses and ${splitEntities.size} splits")

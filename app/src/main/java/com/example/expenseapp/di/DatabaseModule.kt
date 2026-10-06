@@ -3,6 +3,7 @@ package com.example.expenseapp.di
 import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import com.example.expenseapp.data.local.AppDatabase
 import com.example.expenseapp.data.local.dao.*
 import com.example.expenseapp.data.local.entity.CategoryEntity
@@ -36,6 +37,31 @@ object DatabaseModule {
     )
 
 
+    private val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
+        override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+            connection.execSQL("""
+                CREATE TABLE IF NOT EXISTS `sync_queue` (
+                    `id` TEXT NOT NULL,
+                    `entity_type` TEXT NOT NULL,
+                    `entity_id` TEXT NOT NULL,
+                    `action` TEXT NOT NULL,
+                    `created_at` INTEGER NOT NULL,
+                    `retry_count` INTEGER NOT NULL,
+                    `last_error` TEXT,
+                    PRIMARY KEY(`id`)
+                )
+            """.trimIndent())
+            connection.execSQL("""
+                CREATE INDEX IF NOT EXISTS `index_sync_queue_entity_type_entity_id` 
+                ON `sync_queue` (`entity_type`, `entity_id`)
+            """.trimIndent())
+            connection.execSQL("""
+                CREATE INDEX IF NOT EXISTS `index_sync_queue_created_at` 
+                ON `sync_queue` (`created_at`)
+            """.trimIndent())
+        }
+    }
+
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -43,7 +69,8 @@ object DatabaseModule {
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, "expense.db")
             .setDriver(driver)
-            .fallbackToDestructiveMigration() // For development simplicity
+            .addMigrations(MIGRATION_8_9)
+            .fallbackToDestructiveMigration() // Fallback if older broken dev versions
             .build()
 
         // Seed default categories asynchronously
@@ -75,4 +102,7 @@ object DatabaseModule {
 
     @Provides
     fun provideGroupMemberDao(db: AppDatabase): GroupMemberDao = db.groupMemberDao()
+
+    @Provides
+    fun provideSyncQueueDao(db: AppDatabase): SyncQueueDao = db.syncQueueDao()
 }
